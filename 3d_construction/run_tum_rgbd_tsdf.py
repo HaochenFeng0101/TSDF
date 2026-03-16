@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import open3d as o3d
 import trimesh
+import yaml
 from PIL import Image
 
 
@@ -15,7 +16,29 @@ TSDF_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from utils.config_utils import load_config
+
+def load_config(path):
+    with open(path, "r", encoding="utf-8") as handle:
+        cfg_special = yaml.full_load(handle)
+
+    inherit_from = cfg_special.get("inherit_from")
+    if inherit_from is not None:
+        cfg = load_config(inherit_from)
+    else:
+        cfg = {}
+
+    update_recursive(cfg, cfg_special)
+    return cfg
+
+
+def update_recursive(dict1, dict2):
+    for key, value in dict2.items():
+        if key not in dict1:
+            dict1[key] = {}
+        if isinstance(value, dict):
+            update_recursive(dict1[key], value)
+        else:
+            dict1[key] = value
 
 
 def parse_list(filepath, skiprows=0):
@@ -257,7 +280,7 @@ def build_argparser():
     )
     parser.add_argument(
         "--config",
-        default="configs/rgbd/tum/fr3_office.yaml",
+        default=str(TSDF_ROOT / "configs" / "rgbd" / "tum" / "fr3_office.yaml"),
         help="Path to a TUM RGB-D config file.",
     )
     parser.add_argument(

@@ -10,7 +10,8 @@ import trimesh
 from PIL import Image
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
+TSDF_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -174,7 +175,7 @@ def resize_or_rectify_depth(depth, camera):
 
 
 def default_output_path(config_path, suffix):
-    output_dir = REPO_ROOT / "TSDF" / "outputs"
+    output_dir = TSDF_ROOT / "3d_construction" / "outputs"
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir / f"{Path(config_path).stem}{suffix}"
 
@@ -267,12 +268,12 @@ def build_argparser():
     parser.add_argument(
         "--output",
         default=None,
-        help="Output .pcd path. Defaults to TSDF/outputs/<config_stem>.pcd",
+        help="Output .pcd path. Defaults to TSDF/3d_construction/outputs/<config_stem>.pcd",
     )
     parser.add_argument(
         "--mesh-output",
         default=None,
-        help="Optional output mesh path, e.g. TSDF/outputs/fr3_office_mesh.ply",
+        help="Optional output mesh path, e.g. TSDF/3d_construction/outputs/fr3_office_mesh.ply",
     )
     parser.add_argument("--frame-stride", type=int, default=1)
     parser.add_argument("--max-frames", type=int, default=None)

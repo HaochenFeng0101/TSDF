@@ -6,7 +6,8 @@ from pathlib import Path
 from urllib.request import urlretrieve
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
+TSDF_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -75,7 +76,7 @@ def main():
     )
     parser.add_argument(
         "--output-dir",
-        default="TSDF/data/ScanObjectNN",
+        default=str(TSDF_ROOT / "data" / "ScanObjectNN"),
         help="Dataset root directory.",
     )
     parser.add_argument(
@@ -128,7 +129,7 @@ def main():
     if args.write_example:
         print()
         print("Example:")
-        print("from TSDF.scanobjectnn_data import get_scanobjectnn_dataloaders")
+        print("from TSDF.dataset.scanobjectnn_data import get_scanobjectnn_dataloaders")
         print(
             f"train_ds, test_ds, train_loader, test_loader = get_scanobjectnn_dataloaders(root='{output_dir}')"
         )

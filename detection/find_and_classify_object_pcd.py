@@ -8,11 +8,11 @@ import open3d as o3d
 import torch
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from TSDF.pointnet_model import PointNetCls
+from TSDF.detection.pointnet_model import PointNetCls
 
 
 def load_labels(labels_path):
@@ -117,7 +117,7 @@ def main():
     parser.add_argument("--query", required=True, help="Class name to search for.")
     parser.add_argument(
         "--output-dir",
-        default="TSDF/search_outputs",
+        default="TSDF/detection/search_outputs",
         help="Directory to save the matched object point cloud and metadata.",
     )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")

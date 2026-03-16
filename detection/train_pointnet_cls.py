@@ -10,11 +10,16 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
+TSDF_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from TSDF.pointnet_model import PointNetCls
+from TSDF.detection.pointnet_model import PointNetCls
+from TSDF.dataset.scanobjectnn_data import (
+    SCANOBJECTNN_LABELS,
+    get_scanobjectnn_dataloaders,
+)
 
 try:
     import h5py
@@ -209,7 +214,7 @@ def main():
     )
     parser.add_argument(
         "--dataset-type",
-        choices=["dir", "h5"],
+        choices=["dir", "h5", "scanobjectnn"],
         default="dir",
         help="Use a folder dataset or ScanObjectNN-style h5 files.",
     )
@@ -225,6 +230,21 @@ def main():
         default=None,
         help="Optional label file for h5 mode, one class per line. For dir mode it is written automatically.",
     )
+    parser.add_argument(
+        "--scanobjectnn-root",
+        default=str(TSDF_ROOT / "data" / "ScanObjectNN"),
+        help="Root directory created by download_scanobjectnn.py",
+    )
+    parser.add_argument(
+        "--scanobjectnn-variant",
+        default="pb_t50_rs",
+        help="Variant for ScanObjectNN: pb_t50_rs, pb_t50_r, pb_t25, pb_t25_r, obj_bg, obj_only",
+    )
+    parser.add_argument(
+        "--scanobjectnn-no-bg",
+        action="store_true",
+        help="Use main_split_nobg instead of main_split for ScanObjectNN.",
+    )
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--num-points", type=int, default=1024)
@@ -233,7 +253,9 @@ def main():
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
-        "--output-dir", default="TSDF/checkpoints", help="Where to save checkpoints."
+        "--output-dir",
+        default=str(TSDF_ROOT / "model"),
+        help="Where to save checkpoints.",
     )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
@@ -252,7 +274,21 @@ def main():
         test_dataset = PointCloudClassificationDataset(
             test_samples, args.num_points, labels, augment=False, seed=args.seed + 1
         )
-    else:
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=args.batch_size,
+            shuffle=True,
+            num_workers=args.workers,
+            drop_last=False,
+        )
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=args.workers,
+            drop_last=False,
+        )
+    elif args.dataset_type == "h5":
         if args.train_h5 is None or args.test_h5 is None or args.labels is None:
             raise ValueError(
                 "--train-h5, --test-h5, and --labels are required for --dataset-type h5"
@@ -267,21 +303,37 @@ def main():
         test_dataset = H5ClassificationDataset(
             test_samples, args.num_points, labels, augment=False, seed=args.seed + 1
         )
-
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=args.workers,
-        drop_last=False,
-    )
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=args.workers,
-        drop_last=False,
-    )
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=args.batch_size,
+            shuffle=True,
+            num_workers=args.workers,
+            drop_last=False,
+        )
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=args.workers,
+            drop_last=False,
+        )
+    else:
+        if args.scanobjectnn_root is None:
+            raise ValueError(
+                "--scanobjectnn-root is required for --dataset-type scanobjectnn"
+            )
+        labels = SCANOBJECTNN_LABELS
+        train_dataset, test_dataset, train_loader, test_loader = (
+            get_scanobjectnn_dataloaders(
+                root=args.scanobjectnn_root,
+                variant=args.scanobjectnn_variant,
+                batch_size=args.batch_size,
+                num_points=args.num_points,
+                workers=args.workers,
+                use_background=not args.scanobjectnn_no_bg,
+                seed=args.seed,
+            )
+        )
 
     labels_path = output_dir / "labels.txt"
     with open(labels_path, "w", encoding="utf-8") as handle:

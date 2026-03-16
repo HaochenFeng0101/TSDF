@@ -1,3 +1,8 @@
 *
 !.gitignore
 !download_tum_rgbd_samples.py
+
+# Ignore Python cache folders/files
+**/__pycache__/
+*.py[cod]
+*$py.class

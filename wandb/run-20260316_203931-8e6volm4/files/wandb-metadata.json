@@ -1,0 +1,49 @@
+{
+  "os": "Linux-6.17.0-19-generic-x86_64-with-glibc2.39",
+  "python": "CPython 3.10.20",
+  "startedAt": "2026-03-16T12:39:31.404378Z",
+  "args": [
+    "--dataset-type",
+    "scanobjectnn",
+    "--scanobjectnn-variant",
+    "pb_t50_rs",
+    "--use-wandb",
+    "--epochs",
+    "100"
+  ],
+  "program": "/home/haochen/code/TSDF/detection/train_pointnet_cls.py",
+  "codePath": "detection/train_pointnet_cls.py",
+  "codePathLocal": "detection/train_pointnet_cls.py",
+  "git": {
+    "remote": "git@github.com:HaochenFeng0101/TSDF.git",
+    "commit": "f5c56bccadb371de13e8ab35a32f428a1b1d306c"
+  },
+  "email": "fhc1572997072@gmail.com",
+  "root": "/home/haochen/code/TSDF",
+  "host": "haochen-82rf",
+  "executable": "/home/haochen/miniconda3/envs/tsdf/bin/python",
+  "cpu_count": 14,
+  "cpu_count_logical": 20,
+  "gpu": "NVIDIA GeForce RTX 3070 Ti Laptop GPU",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "983038173184",
+      "used": "205833572352"
+    }
+  },
+  "memory": {
+    "total": "16476684288"
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA GeForce RTX 3070 Ti Laptop GPU",
+      "memoryTotal": "8589934592",
+      "cudaCores": 5888,
+      "architecture": "Ampere",
+      "uuid": "GPU-31f385ae-8405-0c7a-5d07-bba318575ff4"
+    }
+  ],
+  "cudaVersion": "12.8",
+  "writerId": "4z3wiui0km2bmbv9umpn32xn1gc75ud2"
+}

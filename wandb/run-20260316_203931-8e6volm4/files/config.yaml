@@ -1,0 +1,103 @@
+_wandb:
+    value:
+        cli_version: 0.25.1
+        e:
+            4z3wiui0km2bmbv9umpn32xn1gc75ud2:
+                args:
+                    - --dataset-type
+                    - scanobjectnn
+                    - --scanobjectnn-variant
+                    - pb_t50_rs
+                    - --use-wandb
+                    - --epochs
+                    - "100"
+                codePath: detection/train_pointnet_cls.py
+                codePathLocal: detection/train_pointnet_cls.py
+                cpu_count: 14
+                cpu_count_logical: 20
+                cudaVersion: "12.8"
+                disk:
+                    /:
+                        total: "983038173184"
+                        used: "205833572352"
+                email: fhc1572997072@gmail.com
+                executable: /home/haochen/miniconda3/envs/tsdf/bin/python
+                git:
+                    commit: f5c56bccadb371de13e8ab35a32f428a1b1d306c
+                    remote: git@github.com:HaochenFeng0101/TSDF.git
+                gpu: NVIDIA GeForce RTX 3070 Ti Laptop GPU
+                gpu_count: 1
+                gpu_nvidia:
+                    - architecture: Ampere
+                      cudaCores: 5888
+                      memoryTotal: "8589934592"
+                      name: NVIDIA GeForce RTX 3070 Ti Laptop GPU
+                      uuid: GPU-31f385ae-8405-0c7a-5d07-bba318575ff4
+                host: haochen-82rf
+                memory:
+                    total: "16476684288"
+                os: Linux-6.17.0-19-generic-x86_64-with-glibc2.39
+                program: /home/haochen/code/TSDF/detection/train_pointnet_cls.py
+                python: CPython 3.10.20
+                root: /home/haochen/code/TSDF
+                startedAt: "2026-03-16T12:39:31.404378Z"
+                writerId: 4z3wiui0km2bmbv9umpn32xn1gc75ud2
+        m: []
+        python_version: 3.10.20
+        t:
+            "1":
+                - 1
+            "2":
+                - 1
+            "3":
+                - 2
+                - 16
+                - 62
+            "4": 3.10.20
+            "5": 0.25.1
+            "12": 0.25.1
+            "13": linux-x86_64
+batch_size:
+    value: 32
+data_root:
+    value: null
+dataset_type:
+    value: scanobjectnn
+device:
+    value: cuda
+epochs:
+    value: 100
+labels:
+    value: null
+labels_path:
+    value: /home/haochen/code/TSDF/model/labels.txt
+lr:
+    value: 0.001
+num_classes:
+    value: 15
+num_points:
+    value: 1024
+output_dir:
+    value: /home/haochen/code/TSDF/model
+scanobjectnn_no_bg:
+    value: false
+scanobjectnn_root:
+    value: /home/haochen/code/TSDF/data/ScanObjectNN
+scanobjectnn_variant:
+    value: pb_t50_rs
+seed:
+    value: 0
+test_h5:
+    value: null
+train_h5:
+    value: null
+use_wandb:
+    value: true
+wandb_project:
+    value: TSDF-PointNet
+wandb_run_name:
+    value: null
+weight_decay:
+    value: 0.0001
+workers:
+    value: 4

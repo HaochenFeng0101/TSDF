@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-# 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
+ 
 class STN3d(nn.Module):
     def __init__(self):
         super().__init__()

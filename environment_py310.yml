@@ -1,0 +1,23 @@
+name: tsdf
+channels:
+  - pytorch
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - scipy
+  - pyyaml
+  - pillow
+  - tqdm
+  - h5py
+  - trimesh
+  - open3d
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pytorch-cuda=11.8
+  - pip:
+      - wandb
+      - opencv-python

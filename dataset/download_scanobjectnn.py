@@ -11,6 +11,11 @@ TSDF_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+try:
+    from tqdm import tqdm
+except Exception:
+    tqdm = None
+
 
 DEFAULT_URL = "http://hkust-vgd.ust.hk/scanobjectnn/h5_files.zip"
 
@@ -18,7 +23,35 @@ DEFAULT_URL = "http://hkust-vgd.ust.hk/scanobjectnn/h5_files.zip"
 def download(url, destination):
     destination.parent.mkdir(parents=True, exist_ok=True)
     print(f"Downloading {url}")
-    urlretrieve(url, destination)
+    if tqdm is None:
+        urlretrieve(url, destination)
+        print("tqdm is not installed, downloaded without a progress bar.")
+        print(f"Downloaded to {destination}")
+        return
+
+    progress_bar = None
+
+    def reporthook(block_num, block_size, total_size):
+        nonlocal progress_bar
+        if progress_bar is None:
+            total = total_size if total_size > 0 else None
+            progress_bar = tqdm(
+                total=total,
+                unit="B",
+                unit_scale=True,
+                unit_divisor=1024,
+                desc=destination.name,
+            )
+        downloaded = block_num * block_size
+        if total_size > 0:
+            downloaded = min(downloaded, total_size)
+        progress_bar.update(downloaded - progress_bar.n)
+
+    try:
+        urlretrieve(url, destination, reporthook=reporthook)
+    finally:
+        if progress_bar is not None:
+            progress_bar.close()
     print(f"Downloaded to {destination}")
 
 

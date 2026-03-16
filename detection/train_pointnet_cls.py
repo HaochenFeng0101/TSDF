@@ -26,6 +26,11 @@ try:
 except Exception:
     h5py = None
 
+try:
+    import wandb
+except Exception:
+    wandb = None
+
 
 def set_seed(seed):
     random.seed(seed)
@@ -258,6 +263,21 @@ def main():
         help="Where to save checkpoints.",
     )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument(
+        "--use-wandb",
+        action="store_true",
+        help="Log training metrics to Weights & Biases.",
+    )
+    parser.add_argument(
+        "--wandb-project",
+        default="TSDF-PointNet",
+        help="wandb project name.",
+    )
+    parser.add_argument(
+        "--wandb-run-name",
+        default=None,
+        help="Optional wandb run name.",
+    )
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -340,6 +360,25 @@ def main():
         for label in labels:
             handle.write(f"{label}\n")
 
+    if args.use_wandb and wandb is None:
+        raise RuntimeError(
+            "wandb is not installed in this environment. Install it or omit --use-wandb."
+        )
+
+    if args.use_wandb:
+        wandb.init(
+            project=args.wandb_project,
+            name=args.wandb_run_name,
+            config=vars(args),
+        )
+        wandb.config.update(
+            {
+                "num_classes": len(labels),
+                "labels_path": str(labels_path),
+            },
+            allow_val_change=True,
+        )
+
     model = PointNetCls(k=len(labels)).to(args.device)
     optimizer = torch.optim.Adam(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay
@@ -390,6 +429,19 @@ def main():
             f"train_acc {train_acc:.4f} | val_loss {val_loss:.4f} | val_acc {val_acc:.4f}"
         )
 
+        if args.use_wandb:
+            wandb.log(
+                {
+                    "epoch": epoch,
+                    "train_loss": train_loss,
+                    "train_acc": train_acc,
+                    "val_loss": val_loss,
+                    "val_acc": val_acc,
+                    "lr": optimizer.param_groups[0]["lr"],
+                    "best_val_acc": max(best_acc, val_acc),
+                }
+            )
+
         ckpt = {
             "epoch": epoch,
             "model_state_dict": model.state_dict(),
@@ -406,6 +458,13 @@ def main():
     metrics_path = output_dir / "train_metrics.json"
     with open(metrics_path, "w", encoding="utf-8") as handle:
         json.dump(history, handle, indent=2)
+
+    if args.use_wandb:
+        wandb.summary["best_checkpoint"] = str(best_ckpt_path)
+        wandb.summary["labels_path"] = str(labels_path)
+        wandb.summary["metrics_path"] = str(metrics_path)
+        wandb.summary["best_val_acc"] = best_acc
+        wandb.finish()
 
     print(f"best checkpoint: {best_ckpt_path}")
     print(f"labels file: {labels_path}")

@@ -42,7 +42,13 @@ def update_recursive(dict1, dict2):
 
 
 def parse_list(filepath, skiprows=0):
-    return np.loadtxt(filepath, delimiter=" ", dtype=np.unicode_, skiprows=skiprows)
+    return np.loadtxt(
+        filepath,
+        delimiter=" ",
+        dtype=np.str_,
+        skiprows=skiprows,
+        comments="#",
+    )
 
 
 def associate_frames(tstamp_image, tstamp_depth, tstamp_pose, max_dt=0.08):

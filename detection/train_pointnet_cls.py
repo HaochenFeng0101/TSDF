@@ -10,12 +10,30 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
 
+
+# python detection/train_pointnet_cls.py \
+#   --dataset-type scanobjectnn \
+#   --scanobjectnn-root data/ScanObjectNN \
+#   --scanobjectnn-variant pb_t50_rs \
+#   --epochs 150 \
+#   --batch-size 32 \
+#   --num-points 1024 \
+#   --lr 1e-3 \
+#   --weight-decay 1e-4 \
+#   --label-smoothing 0.1 \
+#   --feature-transform-weight 1e-3 \
+#   --use-class-weights \
+#   --use-wandb \
+#   --wandb-project TSDF-PointNet \
+#   --wandb-run-name pointnet_scanobjectnn_pb_t50_rs
+  
+  
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TSDF_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from TSDF.detection.pointnet_model import PointNetCls
+from TSDF.detection.pointnet_model import PointNetCls, feature_transform_regularizer
 from TSDF.dataset.scanobjectnn_data import (
     SCANOBJECTNN_LABELS,
     get_scanobjectnn_dataloaders,
@@ -69,8 +87,16 @@ def maybe_augment(points, rng):
     points = points @ rotation.T
     scale = rng.uniform(0.9, 1.1)
     points = points * scale
+    translation = rng.uniform(-0.1, 0.1, size=(1, 3)).astype(np.float32)
+    points = points + translation
     jitter = rng.normal(0.0, 0.01, size=points.shape).astype(np.float32)
     points = points + np.clip(jitter, -0.02, 0.02)
+
+    dropout_ratio = rng.uniform(0.0, 0.15)
+    if len(points) > 0 and dropout_ratio > 0:
+        drop_mask = rng.random(len(points)) < dropout_ratio
+        if np.any(drop_mask):
+            points[drop_mask] = points[0]
     return points
 
 
@@ -195,7 +221,14 @@ def build_dir_splits(data_root):
     return labels, train_samples, test_samples
 
 
-def evaluate(model, dataloader, device):
+def evaluate(
+    model,
+    dataloader,
+    device,
+    class_weights=None,
+    label_smoothing=0.0,
+    feature_transform_weight=1e-3,
+):
     model.eval()
     total_loss = 0.0
     total_correct = 0
@@ -204,13 +237,31 @@ def evaluate(model, dataloader, device):
         for points, labels in dataloader:
             points = points.to(device)
             labels = labels.to(device)
-            logits = model(points)
-            loss = F.cross_entropy(logits, labels)
+            logits, trans_feat = model(points)
+            loss = F.cross_entropy(
+                logits,
+                labels,
+                weight=class_weights,
+                label_smoothing=label_smoothing,
+            )
+            loss = loss + feature_transform_weight * feature_transform_regularizer(trans_feat)
             preds = logits.argmax(dim=1)
             total_loss += loss.item() * labels.size(0)
             total_correct += (preds == labels).sum().item()
             total_seen += labels.size(0)
     return total_loss / max(total_seen, 1), total_correct / max(total_seen, 1)
+
+
+def compute_class_weights(dataset, num_classes):
+    if hasattr(dataset, "labels"):
+        raw_labels = np.asarray(dataset.labels, dtype=np.int64)
+    else:
+        raw_labels = np.asarray([sample["label_idx"] for sample in dataset.samples], dtype=np.int64)
+    counts = np.bincount(raw_labels, minlength=num_classes).astype(np.float32)
+    counts[counts == 0] = 1.0
+    weights = counts.sum() / (len(counts) * counts)
+    weights = weights / weights.mean()
+    return torch.from_numpy(weights.astype(np.float32))
 
 
 def main():
@@ -255,11 +306,19 @@ def main():
     parser.add_argument("--num-points", type=int, default=1024)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--dropout", type=float, default=0.4)
+    parser.add_argument("--label-smoothing", type=float, default=0.1)
+    parser.add_argument("--feature-transform-weight", type=float, default=1e-3)
+    parser.add_argument(
+        "--use-class-weights",
+        action="store_true",
+        help="Use inverse-frequency class weights in the classification loss.",
+    )
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument(
         "--output-dir",
-        default=str(TSDF_ROOT / "model"),
+        default=str(TSDF_ROOT / "model" / "pointnet"),
         help="Where to save checkpoints.",
     )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -379,11 +438,17 @@ def main():
             allow_val_change=True,
         )
 
-    model = PointNetCls(k=len(labels)).to(args.device)
-    optimizer = torch.optim.Adam(
+    class_weights = None
+    if args.use_class_weights:
+        class_weights = compute_class_weights(train_dataset, len(labels)).to(args.device)
+
+    model = PointNetCls(k=len(labels), dropout=args.dropout).to(args.device)
+    optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay
     )
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=args.epochs, eta_min=max(args.lr * 0.01, 1e-5)
+    )
 
     best_acc = 0.0
     best_ckpt_path = output_dir / "pointnet_best.pth"
@@ -400,8 +465,16 @@ def main():
             labels_batch = labels_batch.to(args.device)
 
             optimizer.zero_grad()
-            logits = model(points)
-            loss = F.cross_entropy(logits, labels_batch)
+            logits, trans_feat = model(points)
+            loss = F.cross_entropy(
+                logits,
+                labels_batch,
+                weight=class_weights,
+                label_smoothing=args.label_smoothing,
+            )
+            loss = loss + (
+                args.feature_transform_weight * feature_transform_regularizer(trans_feat)
+            )
             loss.backward()
             optimizer.step()
 
@@ -410,10 +483,17 @@ def main():
             total_correct += (preds == labels_batch).sum().item()
             total_seen += labels_batch.size(0)
 
-        scheduler.step()
         train_loss = total_loss / max(total_seen, 1)
         train_acc = total_correct / max(total_seen, 1)
-        val_loss, val_acc = evaluate(model, test_loader, args.device)
+        val_loss, val_acc = evaluate(
+            model,
+            test_loader,
+            args.device,
+            class_weights=class_weights,
+            label_smoothing=args.label_smoothing,
+            feature_transform_weight=args.feature_transform_weight,
+        )
+        scheduler.step()
         history.append(
             {
                 "epoch": epoch,
@@ -448,6 +528,9 @@ def main():
             "optimizer_state_dict": optimizer.state_dict(),
             "labels": labels,
             "num_points": args.num_points,
+            "dropout": args.dropout,
+            "label_smoothing": args.label_smoothing,
+            "feature_transform_weight": args.feature_transform_weight,
             "val_acc": val_acc,
         }
         torch.save(ckpt, latest_ckpt_path)

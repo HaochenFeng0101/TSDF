@@ -9,6 +9,7 @@ import torch
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+TSDF_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
@@ -63,7 +64,7 @@ def classify_cluster(model, cluster_points, labels, num_points, device, rng):
     sampled = sample_and_normalize(cluster_points, num_points, rng)
     tensor = torch.from_numpy(sampled.T).unsqueeze(0).to(device=device)
     with torch.no_grad():
-        logits = model(tensor)
+        logits, _ = model(tensor)
         probs = torch.softmax(logits, dim=1)[0]
         pred_idx = int(torch.argmax(probs).item())
     return {
@@ -117,7 +118,7 @@ def main():
     parser.add_argument("--query", required=True, help="Class name to search for.")
     parser.add_argument(
         "--output-dir",
-        default="TSDF/detection/search_outputs",
+        default=str(TSDF_ROOT / "detection" / "search_outputs"),
         help="Directory to save the matched object point cloud and metadata.",
     )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")

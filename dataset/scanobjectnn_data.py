@@ -83,8 +83,17 @@ def maybe_augment(points, rng):
     points = points @ rotation.T
     scale = rng.uniform(0.9, 1.1)
     points = points * scale
+    translation = rng.uniform(-0.1, 0.1, size=(1, 3)).astype(np.float32)
+    points = points + translation
     jitter = rng.normal(0.0, 0.01, size=points.shape).astype(np.float32)
-    return points + np.clip(jitter, -0.02, 0.02)
+    points = points + np.clip(jitter, -0.02, 0.02)
+
+    dropout_ratio = rng.uniform(0.0, 0.15)
+    if len(points) > 0 and dropout_ratio > 0:
+        drop_mask = rng.random(len(points)) < dropout_ratio
+        if np.any(drop_mask):
+            points[drop_mask] = points[0]
+    return points
 
 
 def _resolve_split_dir(root, split_name):

@@ -1,0 +1,5 @@
+Dataset:
+  input_width: 640
+  input_height: 480
+  Calibration:
+    depth_scale: 1000.0

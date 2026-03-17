@@ -1,0 +1,49 @@
+{
+  "os": "Linux-6.14.0-37-generic-x86_64-with-glibc2.39",
+  "python": "CPython 3.10.20",
+  "startedAt": "2026-03-17T05:57:27.890725Z",
+  "args": [
+    "--dataset-type",
+    "scanobjectnn",
+    "--use-wandb",
+    "--wandb-project",
+    "TSDF-PointNet",
+    "--wandb-run-name",
+    "scanobjectnn_pb_t50_rs"
+  ],
+  "program": "/media/yuhang/Data1/TSDF/detection/train_pointnet_cls.py",
+  "codePath": "detection/train_pointnet_cls.py",
+  "codePathLocal": "detection/train_pointnet_cls.py",
+  "git": {
+    "remote": "git@github-haochen:HaochenFeng0101/TSDF.git",
+    "commit": "a1619a043b454c9015c981d47de5ed9ad3034c6a"
+  },
+  "email": "fhc1572997072@gmail.com",
+  "root": "/media/yuhang/Data1/TSDF",
+  "host": "yuhang.han-laptop",
+  "executable": "/home/yuhang/miniconda3/envs/tsdf/bin/python",
+  "cpu_count": 8,
+  "cpu_count_logical": 16,
+  "gpu": "NVIDIA GeForce RTX 3050 Laptop GPU",
+  "gpu_count": 1,
+  "disk": {
+    "/": {
+      "total": "487863541760",
+      "used": "444132749312"
+    }
+  },
+  "memory": {
+    "total": "32868933632"
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA GeForce RTX 3050 Laptop GPU",
+      "memoryTotal": "4294967296",
+      "cudaCores": 2048,
+      "architecture": "Ampere",
+      "uuid": "GPU-56838aa4-511f-eff4-5578-5f13383dbd32"
+    }
+  ],
+  "cudaVersion": "12.8",
+  "writerId": "uyr3u1irmkxbj5s3jkmywizu8jjf05a3"
+}

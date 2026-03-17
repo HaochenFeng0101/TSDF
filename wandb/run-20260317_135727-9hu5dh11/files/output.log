@@ -1,0 +1,8 @@
+epoch 001 | train_loss 2.3852 | train_acc 0.2631 | val_loss 2.2271 | val_acc 0.3227
+epoch 002 | train_loss 2.2163 | train_acc 0.3081 | val_loss 2.1390 | val_acc 0.3484
+Traceback (most recent call last):
+  File "/media/yuhang/Data1/TSDF/detection/train_pointnet_cls.py", line 558, in <module>
+    main()
+  File "/media/yuhang/Data1/TSDF/detection/train_pointnet_cls.py", line 482, in main
+    total_loss += loss.item() * labels_batch.size(0)
+KeyboardInterrupt

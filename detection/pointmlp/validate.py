@@ -6,6 +6,11 @@ from pathlib import Path
 import numpy as np
 import torch
 
+try:
+    import open3d as o3d
+except Exception:
+    o3d = None
+
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TSDF_ROOT = Path(__file__).resolve().parents[2]
@@ -89,6 +94,25 @@ def predict_with_votes(model, points, device, num_points, num_votes, use_all_poi
     return pred, probs
 
 
+def colorize_points(points):
+    mins = points.min(axis=0, keepdims=True)
+    maxs = points.max(axis=0, keepdims=True)
+    span = np.maximum(maxs - mins, 1e-6)
+    colors = (points - mins) / span
+    return np.clip(colors, 0.0, 1.0)
+
+
+def visualize_point_cloud(points, title):
+    if o3d is None:
+        raise RuntimeError(
+            "Open3D is not available in this environment, so visualization cannot be shown."
+        )
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points.astype(np.float64))
+    pcd.colors = o3d.utility.Vector3dVector(colorize_points(points).astype(np.float64))
+    o3d.visualization.draw_geometries([pcd], window_name=title)
+
+
 def inspect_one_sample(model, dataset, labels, num_points, device, index, num_votes, use_all_points=False, topk=3):
     raw_points = dataset.data[index][:, :3]
     target = int(dataset.labels[index])
@@ -109,6 +133,17 @@ def inspect_one_sample(model, dataset, labels, num_points, device, index, num_vo
         cls_idx = int(top_indices[rank].item())
         score = float(top_probs[rank].item())
         print(f"  {rank + 1}. {labels[cls_idx]} ({score:.4f})")
+    return {
+        "raw_points": raw_points,
+        "prepared_points": prepare_points(
+            raw_points,
+            num_points=num_points,
+            seed=0,
+            use_all_points=use_all_points,
+        ),
+        "target_label": labels[target],
+        "pred_label": labels[pred],
+    }
 
 
 def main():
@@ -138,6 +173,16 @@ def main():
     parser.add_argument("--index", type=int, default=None)
     parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument(
+        "--visualize",
+        action="store_true",
+        help="Visualize the inspected point cloud with Open3D.",
+    )
+    parser.add_argument(
+        "--visualize-raw-points",
+        action="store_true",
+        help="When visualizing, show the raw point cloud instead of the normalized/evaluated points.",
+    )
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -171,7 +216,7 @@ def main():
     if args.index < 0 or args.index >= len(dataset):
         raise IndexError(f"index {args.index} out of range for dataset of size {len(dataset)}")
 
-    inspect_one_sample(
+    result = inspect_one_sample(
         model,
         dataset,
         labels,
@@ -181,6 +226,13 @@ def main():
         num_votes=args.num_votes,
         use_all_points=args.use_all_points,
     )
+
+    if args.visualize:
+        points_to_show = (
+            result["raw_points"] if args.visualize_raw_points else result["prepared_points"]
+        )
+        title = f"PointMLP | gt={result['target_label']} | pred={result['pred_label']}"
+        visualize_point_cloud(points_to_show, title)
 
 
 if __name__ == "__main__":

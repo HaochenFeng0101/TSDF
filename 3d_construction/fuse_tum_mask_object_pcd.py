@@ -1,6 +1,7 @@
 import argparse
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import cv2
@@ -27,6 +28,16 @@ from run_tum_rgbd_tsdf import (
 #   --voxel-downsample 0.005 \
 #   --remove-statistical-outlier
 
+
+'''
+python 3d_construction/fuse_tum_mask_object_pcd.py \
+  --config configs/rgbd/tum/fr3_office.yaml \
+  --mask-dir mask_generation/outputs/fr3_office_chair/masks \
+  --fuse-all-tracks \
+  --output-dir 3d_construction/outputs/time_fuse_chair_custom
+
+'''
+
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".npy")
 
 
@@ -34,6 +45,13 @@ def default_output_path(config_path):
     output_dir = TSDF_ROOT / "3d_construction" / "outputs"
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir / f"{Path(config_path).stem}_masked_object.pcd"
+
+
+def default_time_fuse_dir(config_path):
+    output_root = TSDF_ROOT / "3d_construction" / "outputs"
+    output_root.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    return output_root / f"time_fuse_{Path(config_path).stem}_{timestamp}"
 
 
 def find_pose_list(dataset_path):
@@ -245,14 +263,11 @@ def masked_depth_to_world_points(color, depth, mask, camera, cam_to_world, depth
     return points_world, colors
 
 
-def fuse_masked_object(args):
-    config = load_config(args.config)
-    dataset_path = args.dataset or config["Dataset"]["dataset_path"]
-
+def fuse_from_mask_list(config, dataset_path, args, mask_list_path, output_path):
     frames, missing_masks = load_tum_masked_frames(
         dataset_path=dataset_path,
         mask_dir=args.mask_dir,
-        mask_list=args.mask_list,
+        mask_list=mask_list_path,
         mask_suffix=args.mask_suffix,
         frame_stride=args.frame_stride,
         max_frames=args.max_frames,
@@ -342,7 +357,7 @@ def fuse_masked_object(args):
             std_ratio=args.outlier_std_ratio,
         )
 
-    output_path = Path(args.output) if args.output else default_output_path(args.config)
+    output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     o3d.io.write_point_cloud(str(output_path), point_cloud)
 
@@ -350,6 +365,87 @@ def fuse_masked_object(args):
     print(
         f"Frames used: {used_frames}/{len(frames)} | "
         f"points after filtering: {len(point_cloud.points)}"
+    )
+    return {
+        "mask_list": str(mask_list_path) if mask_list_path is not None else None,
+        "output": str(output_path),
+        "frames_loaded": int(len(frames)),
+        "missing_masks": int(missing_masks),
+        "frames_used": int(used_frames),
+        "frames_skipped_empty": int(empty_mask_frames),
+        "points_after_filtering": int(len(point_cloud.points)),
+    }
+
+
+def infer_track_output_name(mask_list_path):
+    mask_list_path = Path(mask_list_path)
+    stem = mask_list_path.stem
+    return f"{stem}.pcd"
+
+
+def fuse_masked_object(args):
+    config = load_config(args.config)
+    dataset_path = args.dataset or config["Dataset"]["dataset_path"]
+
+    if args.fuse_all_tracks:
+        if args.mask_list is not None:
+            track_root = Path(args.mask_list).parent
+        else:
+            track_root = Path(args.mask_dir).parent
+
+        track_lists = sorted(track_root.glob("mask_track_*.txt"))
+        if not track_lists:
+            raise RuntimeError(
+                f"No mask_track_*.txt files were found under {track_root}. "
+                "Run the mask generator with --separate-instances first."
+            )
+
+        output_dir = Path(args.output_dir) if args.output_dir else default_time_fuse_dir(
+            args.config
+        )
+        output_dir.mkdir(parents=True, exist_ok=True)
+        summaries = []
+
+        print(f"Found {len(track_lists)} track files under {track_root}")
+        print(f"Saving fused point clouds to {output_dir}")
+
+        for track_list in track_lists:
+            print(f"\nFusing {track_list.name}")
+            output_path = output_dir / infer_track_output_name(track_list)
+            try:
+                summary = fuse_from_mask_list(
+                    config=config,
+                    dataset_path=dataset_path,
+                    args=args,
+                    mask_list_path=track_list,
+                    output_path=output_path,
+                )
+                summary["track_file"] = track_list.name
+                summaries.append(summary)
+            except RuntimeError as exc:
+                print(f"Skipping {track_list.name}: {exc}")
+
+        if not summaries:
+            raise RuntimeError("No track pcd was generated successfully.")
+
+        summary_path = output_dir / "summary.txt"
+        with open(summary_path, "w", encoding="utf-8") as handle:
+            for item in summaries:
+                handle.write(
+                    f"{Path(item['output']).name} frames_used={item['frames_used']} "
+                    f"points={item['points_after_filtering']} mask_list={Path(item['mask_list']).name}\n"
+                )
+        print(f"\nSaved {len(summaries)} fused point clouds under {output_dir}")
+        print(f"Saved summary to {summary_path}")
+        return
+
+    output_path = Path(args.output) if args.output else default_output_path(args.config)
+    fuse_from_mask_list(
+        config=config,
+        dataset_path=dataset_path,
+        args=args,
+        mask_list_path=args.mask_list,
+        output_path=output_path,
     )
 
 
@@ -386,6 +482,16 @@ def build_argparser():
         "--output",
         default=None,
         help="Output .pcd path. Defaults to TSDF/3d_construction/outputs/<config_stem>_masked_object.pcd",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="When --fuse-all-tracks is set, save all fused track pcd files under this directory.",
+    )
+    parser.add_argument(
+        "--fuse-all-tracks",
+        action="store_true",
+        help="Fuse every mask_track_*.txt under the mask output folder into separate pcd files.",
     )
     parser.add_argument("--frame-stride", type=int, default=1)
     parser.add_argument("--max-frames", type=int, default=None)

@@ -17,6 +17,17 @@ from torchvision.transforms.functional import to_tensor
 
 TSDF_ROOT = Path(__file__).resolve().parents[1]
 
+ 
+
+'''
+python mask_generation/generate_tum_masks_maskrcnn.py \
+  --config configs/rgbd/tum/fr3_office.yaml \
+  --target-class chair \
+  --separate-instances \
+  --max-frames 50 \
+  --device cuda
+
+'''
 
 def update_recursive(dict1, dict2):
     for key, value in dict2.items():
@@ -80,12 +91,75 @@ def ensure_rgb_mask_path(mask_root, rgb_relpath):
     return output_path
 
 
+def ensure_track_rgb_mask_path(mask_root, track_id, rgb_relpath):
+    relative = Path(rgb_relpath)
+    output_path = Path(mask_root) / f"track_{track_id:03d}" / relative
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    return output_path
+
+
 def blend_preview(rgb, mask):
     overlay = rgb.copy()
     overlay[mask > 0] = (0.6 * overlay[mask > 0] + 0.4 * np.array([255, 0, 0])).astype(
         np.uint8
     )
     return overlay
+
+
+def mask_center(mask):
+    ys, xs = np.nonzero(mask)
+    if len(xs) == 0:
+        return None
+    return np.array([float(xs.mean()), float(ys.mean())], dtype=np.float32)
+
+
+def mask_iou(mask_a, mask_b):
+    inter = np.logical_and(mask_a, mask_b).sum()
+    if inter == 0:
+        return 0.0
+    union = np.logical_or(mask_a, mask_b).sum()
+    if union == 0:
+        return 0.0
+    return float(inter) / float(union)
+
+
+def assign_track_id(binary_mask, frame_index, tracks, args):
+    center = mask_center(binary_mask)
+    best_track_id = None
+    best_iou = -1.0
+    best_center_dist = None
+
+    for track_id, track in tracks.items():
+        if frame_index - track["last_frame_index"] > args.max_track_gap:
+            continue
+
+        prev_mask = track["last_mask"]
+        iou = mask_iou(binary_mask, prev_mask)
+        center_dist = np.inf
+        if center is not None and track["last_center"] is not None:
+            center_dist = float(np.linalg.norm(center - track["last_center"]))
+
+        if iou < args.track_iou_threshold and center_dist > args.track_center_threshold:
+            continue
+
+        if iou > best_iou or (
+            np.isclose(iou, best_iou)
+            and best_center_dist is not None
+            and center_dist < best_center_dist
+        ):
+            best_track_id = track_id
+            best_iou = iou
+            best_center_dist = center_dist
+
+    if best_track_id is None:
+        best_track_id = len(tracks)
+
+    tracks[best_track_id] = {
+        "last_frame_index": frame_index,
+        "last_mask": binary_mask.copy(),
+        "last_center": center,
+    }
+    return best_track_id
 
 
 def generate_masks(args):
@@ -133,10 +207,14 @@ def generate_masks(args):
         "frames_with_detection": 0,
         "frames_without_detection": 0,
         "frames_saved": 0,
+        "separate_instances": bool(args.separate_instances),
     }
 
     mask_txt_path = output_dir / "mask.txt"
     detections_jsonl = output_dir / "detections.jsonl"
+    tracks = {}
+    track_lines = {}
+    track_stats = {}
 
     with open(mask_txt_path, "w", encoding="utf-8") as mask_txt, open(
         detections_jsonl, "w", encoding="utf-8"
@@ -173,25 +251,63 @@ def generate_masks(args):
             }
 
             if selected:
-                if args.merge_mode == "top1":
+                if args.separate_instances:
+                    metadata["frames_with_detection"] += 1
+                elif args.merge_mode == "top1":
                     selected = [selected[int(np.argmax(scores[selected]))]]
-                selected_masks = masks[selected, 0]
-                binary_mask = (np.max(selected_masks, axis=0) >= args.mask_threshold).astype(
-                    np.uint8
-                ) * 255
-                metadata["frames_with_detection"] += 1
+                    selected_masks = masks[selected, 0]
+                    binary_mask = (
+                        np.max(selected_masks, axis=0) >= args.mask_threshold
+                    ).astype(np.uint8) * 255
+                    metadata["frames_with_detection"] += 1
+                else:
+                    selected_masks = masks[selected, 0]
+                    binary_mask = (
+                        np.max(selected_masks, axis=0) >= args.mask_threshold
+                    ).astype(np.uint8) * 255
+                    metadata["frames_with_detection"] += 1
             else:
                 metadata["frames_without_detection"] += 1
 
             for det_idx in selected:
-                frame_summary["detections"].append(
-                    {
-                        "label": categories[int(labels[det_idx])],
-                        "score": float(scores[det_idx]),
-                    }
-                )
+                detection_summary = {
+                    "label": categories[int(labels[det_idx])],
+                    "score": float(scores[det_idx]),
+                }
+                if args.separate_instances:
+                    instance_mask = (masks[det_idx, 0] >= args.mask_threshold).astype(bool)
+                    if instance_mask.any():
+                        track_id = assign_track_id(instance_mask, idx, tracks, args)
+                        detection_summary["track_id"] = int(track_id)
 
-            if selected:
+                        output_mask_path = ensure_track_rgb_mask_path(
+                            mask_root, track_id, rgb_relpath
+                        )
+                        cv2.imwrite(str(output_mask_path), instance_mask.astype(np.uint8) * 255)
+                        relative_mask_path = output_mask_path.relative_to(output_dir)
+                        track_lines.setdefault(track_id, []).append(
+                            f"{timestamp} {relative_mask_path.as_posix()}\n"
+                        )
+                        stats = track_stats.setdefault(track_id, {"frames_saved": 0})
+                        stats["frames_saved"] += 1
+                        metadata["frames_saved"] += 1
+
+                        if args.save_preview:
+                            preview_path = ensure_track_rgb_mask_path(
+                                preview_root, track_id, rgb_relpath
+                            ).with_suffix(".jpg")
+                            cv2.imwrite(
+                                str(preview_path),
+                                cv2.cvtColor(
+                                    blend_preview(
+                                        image_np, instance_mask.astype(np.uint8) * 255
+                                    ),
+                                    cv2.COLOR_RGB2BGR,
+                                ),
+                            )
+                frame_summary["detections"].append(detection_summary)
+
+            if selected and not args.separate_instances:
                 output_mask_path = ensure_rgb_mask_path(mask_root, rgb_relpath)
                 cv2.imwrite(str(output_mask_path), binary_mask)
                 relative_mask_path = output_mask_path.relative_to(output_dir)
@@ -215,6 +331,23 @@ def generate_masks(args):
                     f"with_detection={metadata['frames_with_detection']} "
                     f"without_detection={metadata['frames_without_detection']}"
                 )
+
+    if args.separate_instances:
+        track_summaries = []
+        for track_id, lines in sorted(track_lines.items()):
+            track_mask_txt_path = output_dir / f"mask_track_{track_id:03d}.txt"
+            with open(track_mask_txt_path, "w", encoding="utf-8") as handle:
+                handle.writelines(lines)
+            track_summaries.append(
+                {
+                    "track_id": track_id,
+                    "frames_saved": track_stats[track_id]["frames_saved"],
+                    "mask_list": str(track_mask_txt_path),
+                }
+            )
+        metadata["tracks"] = track_summaries
+    else:
+        metadata["tracks"] = []
 
     metadata_path = output_dir / "metadata.json"
     with open(metadata_path, "w", encoding="utf-8") as handle:
@@ -266,6 +399,29 @@ def build_argparser():
         choices=("union", "top1"),
         default="top1",
         help="Use the top scoring instance or merge all kept instances into one mask.",
+    )
+    parser.add_argument(
+        "--separate-instances",
+        action="store_true",
+        help="Save same-class detections as separate instance tracks instead of merging them.",
+    )
+    parser.add_argument(
+        "--max-track-gap",
+        type=int,
+        default=10,
+        help="Maximum frame gap for matching the same instance track.",
+    )
+    parser.add_argument(
+        "--track-iou-threshold",
+        type=float,
+        default=0.05,
+        help="Minimum mask IoU to match a detection to an existing track.",
+    )
+    parser.add_argument(
+        "--track-center-threshold",
+        type=float,
+        default=120.0,
+        help="Maximum 2D center distance in pixels to match a detection to an existing track.",
     )
     parser.add_argument("--save-preview", action="store_true")
     parser.add_argument("--log-every", type=int, default=50)

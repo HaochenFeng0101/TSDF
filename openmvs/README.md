@@ -142,10 +142,16 @@ Run a denser reconstruction:
 bash openmvs/run_openmvs_tum.sh --workspace-name fr3_office_openmvs --reexport --frame-stride 5 --max-frames 120 --resolution-level 1 --number-views 5 --max-threads 8
 ```
 
-One command I use often:
+One command I use:
 
 ```bash
-bash openmvs/run_openmvs_tum.sh --workspace-name fr3_office_openmvs --reexport --frame-stride 5 --max-frames 500 --max-threads 8
+bash openmvs/run_openmvs_tum.sh --workspace-name fr3_office_openmvs --reexport --frame-stride 5 --max-frames 500 --resolution-level 1 --number-views 5 --max-threads 8
+```
+
+To view the result:
+```
+pcl_viewer openmvs/workspaces/fr3_office_openmvs/scene_dense.pcd
+
 ```
 
 ## Notes

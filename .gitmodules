@@ -1,0 +1,12 @@
+[submodule "openmvs/OpenMVS"]
+	path = openmvs/OpenMVS
+	url = https://github.com/cdcseacave/openMVS.git
+	ignore = dirty
+[submodule "openmvs/third_party/nanoflann"]
+	path = openmvs/third_party/nanoflann
+	url = https://github.com/jlblancoc/nanoflann.git
+	ignore = dirty
+[submodule "openmvs/third_party/vcglib"]
+	path = openmvs/third_party/vcglib
+	url = https://github.com/cnr-isti-vclab/vcglib.git
+	ignore = dirty

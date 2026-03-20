@@ -4,3 +4,10 @@ __pycache__/
 *$py.class
 
 wandb/
+log/oppenmvs/
+openmvs/workspaces/*
+!openmvs/workspaces/.gitkeep
+openmvs/outputs/*
+!openmvs/outputs/.gitkeep
+openmvs/_build/
+openmvs/_install/

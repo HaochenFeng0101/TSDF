@@ -26,6 +26,8 @@ This project contains lightweight tools for:
   Saved checkpoints and labels.
 - `scripts/`
   Extra utility scripts.
+- `openmvs/`
+  TUM RGB-D to OpenMVS workspace export, build scripts, and OpenMVS outputs.
 
 ## Main Scripts
 
@@ -196,6 +198,28 @@ python dataset/download_scanobjectnn.py
 Default data folder:
 
 - `data/ScanObjectNN`
+
+### OpenMVS Workflow For TUM RGB-D
+
+If you want to try OpenMVS on a TUM RGB-D sequence, use the helper folder:
+
+```bash
+bash openmvs/setup_openmvs.sh
+
+python openmvs/export_tum_to_openmvs.py --config configs/rgbd/tum/fr3_office.yaml --workspace-name fr3_office_openmvs --frame-stride 10 --max-frames 120
+
+bash openmvs/run_openmvs_tum.sh --workspace-name fr3_office_openmvs --reexport --frame-stride 10 --max-frames 120
+```
+
+The exported workspace is created under:
+
+- `openmvs/workspaces/fr3_office_openmvs/`
+
+Final OpenMVS files are kept in the workspace folder itself.
+
+Run logs are written to:
+
+- `log/oppenmvs/fr3_office_openmvs/`
 
 ### 6. Train PointNet
 

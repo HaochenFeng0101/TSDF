@@ -10,3 +10,6 @@
 	path = openmvs/third_party/vcglib
 	url = https://github.com/cnr-isti-vclab/vcglib.git
 	ignore = dirty
+[submodule "SplaTAM"]
+	path = SplaTAM
+	url = git@github.com:spla-tam/SplaTAM.git

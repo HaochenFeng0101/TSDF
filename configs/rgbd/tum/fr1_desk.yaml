@@ -1,4 +1,4 @@
-inherit_from: "/media/yuhang/Data1/TSDF/configs/rgbd/tum/base_config.yaml"
+inherit_from: "base_config.yaml"
 
 Dataset:
   dataset_path: "data/tum/rgbd_dataset_freiburg1_desk"

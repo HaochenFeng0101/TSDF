@@ -40,10 +40,17 @@ def update_recursive(dict1, dict2):
 
 
 def load_config(path):
-    with open(path, "r", encoding="utf-8") as handle:
+    config_path = Path(path).resolve()
+    with config_path.open("r", encoding="utf-8") as handle:
         cfg_special = yaml.full_load(handle)
     inherit_from = cfg_special.get("inherit_from")
-    cfg = load_config(inherit_from) if inherit_from is not None else {}
+    if inherit_from is not None:
+        inherit_path = Path(inherit_from)
+        if not inherit_path.is_absolute():
+            inherit_path = (config_path.parent / inherit_path).resolve()
+        cfg = load_config(inherit_path)
+    else:
+        cfg = {}
     update_recursive(cfg, cfg_special)
     return cfg
 

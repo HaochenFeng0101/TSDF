@@ -13,3 +13,6 @@
 [submodule "SplaTAM"]
 	path = SplaTAM
 	url = git@github.com:spla-tam/SplaTAM.git
+[submodule "RandLA-Net-pytorch"]
+	path = RandLA-Net-pytorch
+	url = git@github.com:HaochenFeng0101/randla-torch.git

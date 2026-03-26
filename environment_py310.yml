@@ -19,5 +19,6 @@ dependencies:
   - torchaudio
   - pytorch-cuda=11.8
   - pip:
+      - kaggle
       - wandb
       - opencv-python

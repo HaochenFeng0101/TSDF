@@ -37,10 +37,14 @@ This project contains lightweight tools for:
   Download a few TUM RGB-D indoor sample scenes.
 - `download_scanobjectnn.py`
   Download `ScanObjectNN`.
+- `download_modelnet40_kaggle.py`
+  Download `ModelNet40` from Kaggle.
 - `download_scannet_scene.py`
   Wrapper around the official ScanNet downloader and SensReader exporter.
 - `scanobjectnn_data.py`
   ScanObjectNN dataset loader.
+- `modelnet40_data.py`
+  ModelNet40 dataset loader.
 
 ### `3d_construction/`
 
@@ -65,6 +69,8 @@ This project contains lightweight tools for:
   Train PointNet classification.
 - `validate_pointnet_sample.py`
   Inspect one PointNet prediction on ScanObjectNN.
+- `predict_pointnet_pointcloud.py`
+  Run a trained PointNet checkpoint on one `.off` / point cloud file and optionally visualize it.
 - `find_and_classify_object_pcd.py`
   Cluster a scene point cloud and classify each cluster.
 - `train_pointmlp_cls.py`
@@ -242,6 +248,51 @@ python detection/validate_pointnet_sample.py \
   --scanobjectnn-root data/ScanObjectNN \
   --scanobjectnn-variant pb_t50_rs \
   --use-all-points
+```
+
+### 7b. Download ModelNet40 from Kaggle
+
+This uses the Kaggle CLI, so the server must already have Kaggle credentials configured.
+
+```bash
+python dataset/download_modelnet40_kaggle.py
+```
+
+Default data folder:
+
+- `data/ModelNet40`
+
+### 7c. Train PointNet on ModelNet40
+
+```bash
+python detection/train_pointnet_cls.py \
+  --dataset-type modelnet40 \
+  --modelnet40-root data/ModelNet40 \
+  --epochs 150 \
+  --batch-size 32 \
+  --num-points 1024
+```
+
+Optional:
+
+- `--modelnet40-sample-method surface`
+- `--use-class-weights`
+- `--device cuda`
+
+Outputs:
+
+- `model/pointnet/pointnet_best.pth`
+- `model/pointnet/pointnet_last.pth`
+- `model/pointnet/labels.txt`
+
+### 7d. Predict and visualize one ModelNet40 or point cloud sample with PointNet
+
+```bash
+python detection/predict_pointnet_pointcloud.py \
+  --input data/ModelNet40/airplane/test/airplane_0627.off \
+  --checkpoint model/pointnet/pointnet_best.pth \
+  --labels model/pointnet/labels.txt \
+  --visualize
 ```
 
 ### 8. Train PointMLP

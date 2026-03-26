@@ -8,26 +8,26 @@
   "mask_threshold": 0.5,
   "merge_mode": "top1",
   "device": "cpu",
-  "frames_total": 50,
-  "frames_with_detection": 50,
+  "frames_total": 200,
+  "frames_with_detection": 200,
   "frames_without_detection": 0,
-  "frames_saved": 121,
+  "frames_saved": 462,
   "separate_instances": true,
   "tracks": [
     {
       "track_id": 0,
-      "frames_saved": 57,
-      "mask_list": "/media/yuhang/Data1/TSDF/mask_generation/outputs/fr3_office_chair/mask_track_000.txt"
+      "frames_saved": 237,
+      "mask_list": "F:\\NUS\\Sem2\\ME6402\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_000.txt"
     },
     {
       "track_id": 1,
-      "frames_saved": 51,
-      "mask_list": "/media/yuhang/Data1/TSDF/mask_generation/outputs/fr3_office_chair/mask_track_001.txt"
+      "frames_saved": 188,
+      "mask_list": "F:\\NUS\\Sem2\\ME6402\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_001.txt"
     },
     {
       "track_id": 2,
-      "frames_saved": 13,
-      "mask_list": "/media/yuhang/Data1/TSDF/mask_generation/outputs/fr3_office_chair/mask_track_002.txt"
+      "frames_saved": 37,
+      "mask_list": "F:\\NUS\\Sem2\\ME6402\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_002.txt"
     }
   ]
 }

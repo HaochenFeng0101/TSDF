@@ -31,7 +31,10 @@ def load_config(path):
 
     inherit_from = config_part.get("inherit_from")
     if inherit_from:
-        inherited = load_config(inherit_from)
+        inherit_path = Path(inherit_from)
+        if not inherit_path.is_absolute():
+            inherit_path = (config_path.parent / inherit_path).resolve()
+        inherited = load_config(inherit_path)
     else:
         inherited = {}
 

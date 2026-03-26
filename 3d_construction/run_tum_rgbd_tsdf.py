@@ -18,45 +18,21 @@ if str(REPO_ROOT) not in sys.path:
 
 
 def load_config(path):
-    path = Path(path)
-    with open(path, "r", encoding="utf-8") as handle:
+    config_path = Path(path).resolve()
+    with config_path.open("r", encoding="utf-8") as handle:
         cfg_special = yaml.full_load(handle)
 
     inherit_from = cfg_special.get("inherit_from")
     if inherit_from is not None:
-        cfg = load_config(resolve_inherit_config(path, inherit_from))
+        inherit_path = Path(inherit_from)
+        if not inherit_path.is_absolute():
+            inherit_path = (config_path.parent / inherit_path).resolve()
+        cfg = load_config(inherit_path)
     else:
         cfg = {}
 
     update_recursive(cfg, cfg_special)
     return cfg
-
-
-def resolve_inherit_config(config_path, inherit_from):
-    inherit_from = Path(str(inherit_from))
-    if inherit_from.exists():
-        return inherit_from
-
-    relative_candidate = config_path.parent / inherit_from
-    if relative_candidate.exists():
-        return relative_candidate
-
-    normalized = str(inherit_from).replace("\\", "/")
-    marker = "/configs/"
-    marker_idx = normalized.lower().rfind(marker)
-    if marker_idx != -1:
-        suffix = normalized[marker_idx + len(marker) :]
-        repo_candidate = TSDF_ROOT / "configs" / Path(suffix)
-        if repo_candidate.exists():
-            return repo_candidate
-
-    same_dir_candidate = config_path.parent / inherit_from.name
-    if same_dir_candidate.exists():
-        return same_dir_candidate
-
-    raise FileNotFoundError(
-        f"Could not resolve inherited config '{inherit_from}' from '{config_path}'."
-    )
 
 
 def update_recursive(dict1, dict2):

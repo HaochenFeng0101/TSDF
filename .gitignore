@@ -11,3 +11,4 @@ openmvs/outputs/*
 !openmvs/outputs/.gitkeep
 openmvs/_build/
 openmvs/_install/
+mask_generation/outputs/*

@@ -1,0 +1,391 @@
+import argparse
+import json
+import random
+import sys
+from pathlib import Path
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, Dataset
+
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+TSDF_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from TSDF.detection.pointnet2.pointnet2seg import PointNet2SemSegSSG
+
+try:
+    from tqdm import tqdm
+except Exception:
+    tqdm = None
+
+try:
+    import open3d as o3d
+except Exception:
+    o3d = None
+
+
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def normalize_xyz(points):
+    xyz = points[:, :3].astype(np.float32)
+    centroid = xyz.mean(axis=0, keepdims=True)
+    xyz = xyz - centroid
+    scale = np.linalg.norm(xyz, axis=1).max()
+    if scale > 0:
+        xyz = xyz / scale
+    points = points.astype(np.float32).copy()
+    points[:, :3] = xyz
+    return points
+
+
+def load_seg_sample(path):
+    path = Path(path)
+    suffix = path.suffix.lower()
+    if suffix == ".npz":
+        data = np.load(path)
+        points = data["points"]
+        labels = data["labels"]
+    elif suffix == ".npy":
+        payload = np.load(path, allow_pickle=True)
+        if isinstance(payload, np.ndarray) and payload.dtype == object and len(payload) == 1:
+            payload = payload.item()
+        if isinstance(payload, dict):
+            points = payload["points"]
+            labels = payload["labels"]
+        else:
+            raise ValueError(f"{path} 需要是包含 points/labels 的 dict-like npy。")
+    elif suffix in {".pcd", ".ply"}:
+        if o3d is None:
+            raise RuntimeError("读取 .pcd/.ply 需要安装 open3d。")
+        cloud = o3d.io.read_point_cloud(str(path))
+        if cloud.is_empty():
+            raise ValueError(f"空点云: {path}")
+        label_path = path.with_name(f"{path.stem}_labels.npy")
+        if not label_path.exists():
+            raise FileNotFoundError(f"缺少标签文件: {label_path}")
+        points = np.asarray(cloud.points, dtype=np.float32)
+        if cloud.has_colors():
+            colors = np.asarray(cloud.colors, dtype=np.float32)
+            points = np.concatenate([points, colors], axis=1)
+        labels = np.load(label_path).astype(np.int64)
+    else:
+        raise ValueError(f"不支持的分割样本格式: {path}")
+
+    points = np.asarray(points, dtype=np.float32)
+    labels = np.asarray(labels, dtype=np.int64).reshape(-1)
+    if points.ndim != 2 or points.shape[1] < 3:
+        raise ValueError(f"{path} 的 points 需要是 Nx3 或 Nx6，当前是 {points.shape}")
+    if len(points) != len(labels):
+        raise ValueError(f"{path} 的 points 和 labels 数量不一致: {len(points)} vs {len(labels)}")
+    return points, labels
+
+
+class SceneSegDataset(Dataset):
+    def __init__(self, root, split, num_points=4096, use_color=True, augment=False, seed=0):
+        self.root = Path(root)
+        self.split = split
+        self.num_points = num_points
+        self.use_color = use_color
+        self.augment = augment
+        self.rng = np.random.default_rng(seed)
+
+        split_dir = self.root / split
+        if not split_dir.exists():
+            raise FileNotFoundError(f"找不到 split 目录: {split_dir}")
+
+        self.files = sorted(
+            path for path in split_dir.iterdir() if path.suffix.lower() in {".npz", ".npy", ".pcd", ".ply"}
+        )
+        if not self.files:
+            raise RuntimeError(f"{split_dir} 下没有可用样本。")
+
+    def __len__(self):
+        return len(self.files)
+
+    def __getitem__(self, idx):
+        points, labels = load_seg_sample(self.files[idx])
+        if points.shape[1] > 3 and not self.use_color:
+            points = points[:, :3]
+
+        points = normalize_xyz(points)
+
+        if len(points) >= self.num_points:
+            choice = self.rng.choice(len(points), self.num_points, replace=False)
+        else:
+            choice = self.rng.choice(len(points), self.num_points, replace=True)
+
+        points = points[choice]
+        labels = labels[choice]
+
+        if self.augment:
+            theta = self.rng.uniform(0.0, 2.0 * np.pi)
+            cos_theta = np.cos(theta)
+            sin_theta = np.sin(theta)
+            rotation = np.array(
+                [[cos_theta, 0.0, sin_theta], [0.0, 1.0, 0.0], [-sin_theta, 0.0, cos_theta]],
+                dtype=np.float32,
+            )
+            points[:, :3] = points[:, :3] @ rotation.T
+
+        return torch.from_numpy(points.T.astype(np.float32)), torch.from_numpy(labels.astype(np.int64))
+
+
+def load_labels(labels_path, num_classes):
+    if labels_path is None:
+        return [f"class_{i}" for i in range(num_classes)]
+    with open(labels_path, "r", encoding="utf-8") as handle:
+        labels = [line.strip() for line in handle if line.strip()]
+    if len(labels) < num_classes:
+        labels.extend(f"class_{i}" for i in range(len(labels), num_classes))
+    return labels[:num_classes]
+
+
+def compute_class_weights(dataset, num_classes, sample_cap=200):
+    counts = np.zeros(num_classes, dtype=np.float64)
+    limit = min(len(dataset), sample_cap)
+    for idx in range(limit):
+        _, labels = dataset[idx]
+        counts += np.bincount(labels.numpy(), minlength=num_classes)
+    counts[counts == 0] = 1.0
+    weights = counts.sum() / (len(counts) * counts)
+    weights = weights / weights.mean()
+    return torch.from_numpy(weights.astype(np.float32))
+
+
+def evaluate(model, dataloader, device, num_classes, ignore_index=-100, class_weights=None):
+    model.eval()
+    total_loss = 0.0
+    total_correct = 0
+    total_seen = 0
+    total_iou_inter = np.zeros(num_classes, dtype=np.float64)
+    total_iou_union = np.zeros(num_classes, dtype=np.float64)
+
+    iterator = dataloader
+    if tqdm is not None:
+        iterator = tqdm(dataloader, desc="val", leave=False, dynamic_ncols=True)
+
+    with torch.no_grad():
+        for points, labels in iterator:
+            points = points.to(device)
+            labels = labels.to(device)
+            logits = model(points)
+            loss = F.cross_entropy(
+                logits,
+                labels,
+                weight=class_weights,
+                ignore_index=ignore_index,
+            )
+            preds = logits.argmax(dim=1)
+            valid = labels != ignore_index
+
+            total_loss += loss.item() * valid.sum().item()
+            total_correct += ((preds == labels) & valid).sum().item()
+            total_seen += valid.sum().item()
+
+            preds_np = preds.cpu().numpy()
+            labels_np = labels.cpu().numpy()
+            valid_np = valid.cpu().numpy()
+            for class_idx in range(num_classes):
+                pred_mask = (preds_np == class_idx) & valid_np
+                label_mask = (labels_np == class_idx) & valid_np
+                total_iou_inter[class_idx] += np.logical_and(pred_mask, label_mask).sum()
+                total_iou_union[class_idx] += np.logical_or(pred_mask, label_mask).sum()
+
+    iou = total_iou_inter / np.maximum(total_iou_union, 1.0)
+    miou = float(iou.mean())
+    return total_loss / max(total_seen, 1), total_correct / max(total_seen, 1), miou
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="训练 PointNet++ 语义分割模型。"
+    )
+    parser.add_argument(
+        "--data-root",
+        required=True,
+        help="数据根目录。需要有 train/ 和 val/ 子目录，里面放 .npz/.npy/.pcd/.ply 样本。",
+    )
+    parser.add_argument(
+        "--labels",
+        default=None,
+        help="可选标签文件，每行一个类别名。",
+    )
+    parser.add_argument("--num-classes", type=int, required=True)
+    parser.add_argument("--num-points", type=int, default=4096)
+    parser.add_argument("--batch-size", type=int, default=8)
+    parser.add_argument("--epochs", type=int, default=100)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--weight-decay", type=float, default=1e-4)
+    parser.add_argument("--dropout", type=float, default=0.5)
+    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--ignore-index", type=int, default=-100)
+    parser.add_argument("--use-color", action="store_true")
+    parser.add_argument("--use-class-weights", action="store_true")
+    parser.add_argument(
+        "--output-dir",
+        default=str(TSDF_ROOT / "model" / "pointnet2_seg"),
+        help="模型输出目录。",
+    )
+    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    args = parser.parse_args()
+
+    set_seed(args.seed)
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    train_dataset = SceneSegDataset(
+        root=args.data_root,
+        split="train",
+        num_points=args.num_points,
+        use_color=args.use_color,
+        augment=True,
+        seed=args.seed,
+    )
+    val_dataset = SceneSegDataset(
+        root=args.data_root,
+        split="val",
+        num_points=args.num_points,
+        use_color=args.use_color,
+        augment=False,
+        seed=args.seed + 1,
+    )
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=args.workers,
+        drop_last=False,
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.workers,
+        drop_last=False,
+    )
+
+    input_channels = 6 if args.use_color else 3
+    labels = load_labels(args.labels, args.num_classes)
+    with open(output_dir / "labels.txt", "w", encoding="utf-8") as handle:
+        for label in labels:
+            handle.write(f"{label}\n")
+
+    print(f"train_samples={len(train_dataset)} | val_samples={len(val_dataset)} | num_classes={args.num_classes}")
+    print(f"device={args.device} | workers={args.workers} | batch_size={args.batch_size} | input_channels={input_channels}")
+
+    class_weights = None
+    if args.use_class_weights:
+        class_weights = compute_class_weights(train_dataset, args.num_classes).to(args.device)
+
+    model = PointNet2SemSegSSG(
+        num_classes=args.num_classes,
+        input_channels=input_channels,
+        dropout=args.dropout,
+    ).to(args.device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=args.epochs, eta_min=max(args.lr * 0.01, 1e-5)
+    )
+
+    best_miou = -1.0
+    history = []
+    best_ckpt = output_dir / "pointnet2_seg_best.pth"
+    last_ckpt = output_dir / "pointnet2_seg_last.pth"
+
+    for epoch in range(1, args.epochs + 1):
+        model.train()
+        total_loss = 0.0
+        total_correct = 0
+        total_seen = 0
+        iterator = train_loader
+        if tqdm is not None:
+            iterator = tqdm(train_loader, desc=f"train {epoch:03d}", leave=False, dynamic_ncols=True)
+
+        for points, labels_batch in iterator:
+            points = points.to(args.device)
+            labels_batch = labels_batch.to(args.device)
+            optimizer.zero_grad()
+            logits = model(points)
+            loss = F.cross_entropy(
+                logits,
+                labels_batch,
+                weight=class_weights,
+                ignore_index=args.ignore_index,
+            )
+            loss.backward()
+            optimizer.step()
+
+            preds = logits.argmax(dim=1)
+            valid = labels_batch != args.ignore_index
+            total_loss += loss.item() * valid.sum().item()
+            total_correct += ((preds == labels_batch) & valid).sum().item()
+            total_seen += valid.sum().item()
+            if tqdm is not None:
+                iterator.set_postfix(loss=f"{loss.item():.4f}")
+
+        train_loss = total_loss / max(total_seen, 1)
+        train_acc = total_correct / max(total_seen, 1)
+        val_loss, val_acc, val_miou = evaluate(
+            model,
+            val_loader,
+            args.device,
+            num_classes=args.num_classes,
+            ignore_index=args.ignore_index,
+            class_weights=class_weights,
+        )
+        scheduler.step()
+
+        history.append(
+            {
+                "epoch": epoch,
+                "train_loss": train_loss,
+                "train_acc": train_acc,
+                "val_loss": val_loss,
+                "val_acc": val_acc,
+                "val_miou": val_miou,
+            }
+        )
+
+        print(
+            f"epoch {epoch:03d} | train_loss {train_loss:.4f} | train_acc {train_acc:.4f} | "
+            f"val_loss {val_loss:.4f} | val_acc {val_acc:.4f} | val_mIoU {val_miou:.4f}"
+        )
+
+        checkpoint = {
+            "epoch": epoch,
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "scheduler_state_dict": scheduler.state_dict(),
+            "num_points": args.num_points,
+            "num_classes": args.num_classes,
+            "input_channels": input_channels,
+            "labels": labels,
+            "model_type": "pointnet2_semseg_ssg",
+        }
+        torch.save(checkpoint, last_ckpt)
+        if val_miou >= best_miou:
+            best_miou = val_miou
+            torch.save(checkpoint, best_ckpt)
+
+    with open(output_dir / "train_metrics.json", "w", encoding="utf-8") as handle:
+        json.dump(history, handle, indent=2)
+
+    print(f"Training finished. Best val_mIoU={best_miou:.4f}")
+    print(f"Best checkpoint: {best_ckpt}")
+    print(f"Last checkpoint: {last_ckpt}")
+    print(f"Labels file: {output_dir / 'labels.txt'}")
+
+
+if __name__ == "__main__":
+    main()

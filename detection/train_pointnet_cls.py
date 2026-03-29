@@ -339,6 +339,18 @@ def main():
     parser.add_argument("--label-smoothing", type=float, default=0.1)
     parser.add_argument("--feature-transform-weight", type=float, default=1e-3)
     parser.add_argument(
+        "--early-stop-patience",
+        type=int,
+        default=0,
+        help="Stop training if validation accuracy does not improve for this many epochs. Set to 0 to disable.",
+    )
+    parser.add_argument(
+        "--early-stop-min-delta",
+        type=float,
+        default=0.0,
+        help="Minimum validation accuracy improvement required to reset early stopping patience.",
+    )
+    parser.add_argument(
         "--use-class-weights",
         action="store_true",
         help="Use inverse-frequency class weights in the classification loss.",
@@ -496,6 +508,8 @@ def main():
     )
 
     best_acc = 0.0
+    best_epoch = 0
+    epochs_without_improvement = 0
     best_ckpt_path = output_dir / "pointnet_best.pth"
     latest_ckpt_path = output_dir / "pointnet_last.pth"
     history = []
@@ -579,9 +593,20 @@ def main():
             "val_acc": val_acc,
         }
         torch.save(ckpt, latest_ckpt_path)
-        if val_acc >= best_acc:
+        if val_acc > best_acc + args.early_stop_min_delta:
             best_acc = val_acc
+            best_epoch = epoch
+            epochs_without_improvement = 0
             torch.save(ckpt, best_ckpt_path)
+        else:
+            epochs_without_improvement += 1
+
+        if args.early_stop_patience > 0 and epochs_without_improvement >= args.early_stop_patience:
+            print(
+                f"early stopping at epoch {epoch:03d} | "
+                f"best epoch {best_epoch:03d} | best val_acc {best_acc:.4f}"
+            )
+            break
 
     metrics_path = output_dir / "train_metrics.json"
     with open(metrics_path, "w", encoding="utf-8") as handle:

@@ -1,0 +1,11 @@
+{
+  "raw_root": "/home/haochen/code/TSDF/data/S3DIS_raw/Stanford3dDataset_v1.2_Aligned_Version",
+  "area": "Area_1",
+  "room": "office_20",
+  "room_dir": "/home/haochen/code/TSDF/data/S3DIS_raw/Stanford3dDataset_v1.2_Aligned_Version/Area_1/office_20",
+  "output": "/home/haochen/code/TSDF/3d_construction/outputs/Area_1_office_20.pcd",
+  "points_before_downsample": 873306,
+  "points_saved": 873306,
+  "voxel_downsample": 0.0,
+  "seed": 42
+}

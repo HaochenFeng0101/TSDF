@@ -7,27 +7,97 @@
   "score_threshold": 0.6,
   "mask_threshold": 0.5,
   "merge_mode": "top1",
-  "device": "cpu",
-  "frames_total": 200,
-  "frames_with_detection": 200,
-  "frames_without_detection": 0,
-  "frames_saved": 462,
+  "device": "cuda",
+  "frames_total": 1000,
+  "frames_with_detection": 729,
+  "frames_without_detection": 271,
+  "frames_saved": 1534,
   "separate_instances": true,
   "tracks": [
     {
       "track_id": 0,
-      "frames_saved": 237,
-      "mask_list": "F:\\NUS\\Sem2\\ME6402\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_000.txt"
+      "frames_saved": 288,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_000.txt"
     },
     {
       "track_id": 1,
       "frames_saved": 188,
-      "mask_list": "F:\\NUS\\Sem2\\ME6402\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_001.txt"
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_001.txt"
     },
     {
       "track_id": 2,
       "frames_saved": 37,
-      "mask_list": "F:\\NUS\\Sem2\\ME6402\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_002.txt"
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_002.txt"
+    },
+    {
+      "track_id": 3,
+      "frames_saved": 46,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_003.txt"
+    },
+    {
+      "track_id": 4,
+      "frames_saved": 618,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_004.txt"
+    },
+    {
+      "track_id": 5,
+      "frames_saved": 70,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_005.txt"
+    },
+    {
+      "track_id": 6,
+      "frames_saved": 6,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_006.txt"
+    },
+    {
+      "track_id": 7,
+      "frames_saved": 30,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_007.txt"
+    },
+    {
+      "track_id": 8,
+      "frames_saved": 3,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_008.txt"
+    },
+    {
+      "track_id": 9,
+      "frames_saved": 41,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_009.txt"
+    },
+    {
+      "track_id": 10,
+      "frames_saved": 98,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_010.txt"
+    },
+    {
+      "track_id": 11,
+      "frames_saved": 1,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_011.txt"
+    },
+    {
+      "track_id": 12,
+      "frames_saved": 1,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_012.txt"
+    },
+    {
+      "track_id": 13,
+      "frames_saved": 1,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_013.txt"
+    },
+    {
+      "track_id": 14,
+      "frames_saved": 1,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_014.txt"
+    },
+    {
+      "track_id": 15,
+      "frames_saved": 92,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_015.txt"
+    },
+    {
+      "track_id": 16,
+      "frames_saved": 13,
+      "mask_list": "D:\\cxy\\TSDF\\mask_generation\\outputs\\fr3_office_chair\\mask_track_016.txt"
     }
   ]
 }

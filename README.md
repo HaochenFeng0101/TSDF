@@ -69,8 +69,10 @@ This project contains lightweight tools for:
   Train PointNet classification.
 - `validate_pointnet_sample.py`
   Inspect one PointNet prediction on ScanObjectNN.
+- `predict_pointcloud.py`
+  Run a trained PointNet or PointMLP checkpoint on one `.off` / point cloud file and optionally visualize it.
 - `predict_pointnet_pointcloud.py`
-  Run a trained PointNet checkpoint on one `.off` / point cloud file and optionally visualize it.
+  Backward-compatible wrapper around `predict_pointcloud.py`.
 - `find_and_classify_object_pcd.py`
   Cluster a scene point cloud and classify each cluster.
 - `train_pointmlp_cls.py`
@@ -285,15 +287,18 @@ Outputs:
 - `model/pointnet/pointnet_last.pth`
 - `model/pointnet/labels.txt`
 
-### 7d. Predict and visualize one ModelNet40 or point cloud sample with PointNet
+### 7d. Predict and visualize one ModelNet40 or point cloud sample
 
 ```bash
-python detection/predict_pointnet_pointcloud.py \
+python detection/predict_pointcloud.py \
   --input data/ModelNet40/airplane/test/airplane_0627.off \
   --checkpoint model/pointnet/pointnet_best.pth \
   --labels model/pointnet/labels.txt \
+  --model pointnet \
   --visualize
 ```
+
+You can also use `--model pointmlp` or `--model pointmlpelite`. If omitted, the script will try to infer the model from the checkpoint.
 
 ### 8. Train PointMLP
 

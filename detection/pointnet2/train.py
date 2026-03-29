@@ -96,7 +96,7 @@ def load_off_mesh(path):
         elif first_line.startswith("OFF"):
             counts_line = first_line[3:].strip()
         else:
-            raise ValueError(f"不是合法的 OFF 文件: {path}")
+            raise ValueError(f"Invalid OFF file: {path}")
 
         while counts_line.startswith("#") or not counts_line:
             counts_line = handle.readline().strip()
@@ -125,11 +125,11 @@ def load_off_mesh(path):
     vertices = np.asarray(vertices, dtype=np.float32)
     faces = np.asarray(faces, dtype=np.int64)
     if len(vertices) == 0 or len(faces) == 0:
-        raise ValueError(f"OFF 文件没有有效顶点或面: {path}")
+        raise ValueError(f"OFF file has no valid vertices or faces: {path}")
 
     finite_vertex_mask = np.isfinite(vertices).all(axis=1)
     if not np.any(finite_vertex_mask):
-        raise ValueError(f"OFF 文件顶点全是无效值: {path}")
+        raise ValueError(f"OFF file vertices are all invalid: {path}")
 
     if not np.all(finite_vertex_mask):
         remap = np.full(len(vertices), -1, dtype=np.int64)
@@ -145,14 +145,14 @@ def load_off_mesh(path):
     faces = faces[valid_face_mask]
 
     if len(vertices) == 0 or len(faces) == 0:
-        raise ValueError(f"OFF 文件过滤后没有有效顶点或面: {path}")
+        raise ValueError(f"OFF file has no valid vertices or faces after filtering: {path}")
     return vertices, faces
 
 
 def sample_points_from_mesh(vertices, faces, num_points, rng):
     safe_vertices = vertices[np.isfinite(vertices).all(axis=1)]
     if len(safe_vertices) == 0:
-        raise ValueError("mesh 中没有有限顶点，无法采样。")
+        raise ValueError("Mesh contains no finite vertices for sampling.")
 
     safe_vertices64 = safe_vertices.astype(np.float64, copy=False)
     scale = np.abs(safe_vertices64).max()
@@ -197,7 +197,7 @@ def sample_points_from_mesh(vertices, faces, num_points, rng):
 class ModelNet40H5Dataset(Dataset):
     def __init__(self, root, split, num_points=1024, augment=False, seed=0):
         if h5py is None:
-            raise RuntimeError("h5py 未安装，无法读取 ModelNet40 HDF5 数据。")
+            raise RuntimeError("h5py is required to read ModelNet40 HDF5 data.")
 
         self.root = Path(root)
         self.split = split
@@ -214,7 +214,7 @@ class ModelNet40H5Dataset(Dataset):
     def _load_labels(self):
         labels_path = self.root / "shape_names.txt"
         if not labels_path.exists():
-            raise FileNotFoundError(f"找不到 {labels_path}")
+            raise FileNotFoundError(f"Could not find {labels_path}")
         with open(labels_path, "r", encoding="utf-8") as handle:
             return [line.strip() for line in handle if line.strip()]
 
@@ -222,7 +222,7 @@ class ModelNet40H5Dataset(Dataset):
         filelist_name = "train_files.txt" if split == "train" else "test_files.txt"
         filelist_path = self.root / filelist_name
         if not filelist_path.exists():
-            raise FileNotFoundError(f"找不到 {filelist_path}")
+            raise FileNotFoundError(f"Could not find {filelist_path}")
 
         samples = []
         with open(filelist_path, "r", encoding="utf-8") as handle:
@@ -234,7 +234,7 @@ class ModelNet40H5Dataset(Dataset):
             if not h5_path.exists():
                 h5_path = self.root / relpath
             if not h5_path.exists():
-                raise FileNotFoundError(f"找不到 H5 文件: {h5_path}")
+                raise FileNotFoundError(f"Could not find H5 file: {h5_path}")
 
             with h5py.File(h5_path, "r") as data:
                 points = np.asarray(data["data"], dtype=np.float32)[:, :, :3]
@@ -268,11 +268,11 @@ class ModelNet40OffDataset(Dataset):
             self.root = nested_root
 
         if not self.root.exists():
-            raise FileNotFoundError(f"找不到 ModelNet40 目录: {self.root}")
+            raise FileNotFoundError(f"Could not find ModelNet40 directory: {self.root}")
 
         self.labels = sorted(path.name for path in self.root.iterdir() if path.is_dir())
         if not self.labels:
-            raise RuntimeError(f"{self.root} 下没有类别目录。")
+            raise RuntimeError(f"No class directories found under {self.root}.")
 
         self.samples = []
         for label_idx, label in enumerate(self.labels):
@@ -283,7 +283,7 @@ class ModelNet40OffDataset(Dataset):
                 self.samples.append({"path": path, "label_idx": label_idx})
 
         if not self.samples:
-            raise RuntimeError(f"{self.root} 下没有找到 {split} split 的 OFF 文件。")
+            raise RuntimeError(f"No OFF files found for split '{split}' under {self.root}.")
 
     def __len__(self):
         return len(self.samples)
@@ -332,8 +332,8 @@ def resolve_dataset_type(args):
     if modelnet40_is_ready(args.modelnet40_root):
         return "modelnet40"
     raise RuntimeError(
-        "没有找到可用数据集。请先使用现有的 ScanObjectNN，或者运行 "
-        "`python3 detection/pointnet2/download_modelnet40.py` 下载 ModelNet40。"
+        "No usable dataset was found. Use an existing ScanObjectNN setup or run "
+        "`python3 detection/pointnet2/download_modelnet40.py` to download ModelNet40."
     )
 
 
@@ -377,33 +377,33 @@ def compute_class_weights(dataset, num_classes):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="训练原始风格 PointNet++ SSG 分类模型。优先支持 ScanObjectNN，失败时可切到 ModelNet40。"
+        description="Train an original-style PointNet++ SSG classification model. Prefer ScanObjectNN and fall back to ModelNet40."
     )
     parser.add_argument(
         "--dataset-type",
         choices=["auto", "scanobjectnn", "modelnet40"],
         default="auto",
-        help="auto 会优先使用 ScanObjectNN，否则使用 ModelNet40。",
+        help="auto prefers ScanObjectNN and falls back to ModelNet40.",
     )
     parser.add_argument(
         "--scanobjectnn-root",
         default=str(TSDF_ROOT / "data" / "ScanObjectNN"),
-        help="ScanObjectNN 根目录。",
+        help="ScanObjectNN root directory.",
     )
     parser.add_argument(
         "--scanobjectnn-variant",
         default="pb_t50_rs",
-        help="ScanObjectNN 变体。",
+        help="ScanObjectNN variant.",
     )
     parser.add_argument(
         "--scanobjectnn-no-bg",
         action="store_true",
-        help="使用不带背景的 split。",
+        help="Use the no-background split.",
     )
     parser.add_argument(
         "--modelnet40-root",
         default=str(TSDF_ROOT / "data" / "ModelNet40"),
-        help="ModelNet40 根目录。",
+        help="ModelNet40 root directory.",
     )
     parser.add_argument("--epochs", type=int, default=150)
     parser.add_argument("--batch-size", type=int, default=16)
@@ -418,7 +418,7 @@ def main():
     parser.add_argument(
         "--output-dir",
         default=str(TSDF_ROOT / "model" / "pointnet2"),
-        help="checkpoint 输出目录。",
+        help="Checkpoint output directory.",
     )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--use-wandb", action="store_true")
@@ -505,7 +505,7 @@ def main():
             handle.write(f"{label}\n")
 
     if args.use_wandb and wandb is None:
-        raise RuntimeError("wandb 未安装，无法使用 --use-wandb。")
+        raise RuntimeError("wandb is not installed, so --use-wandb cannot be used.")
 
     if args.use_wandb:
         wandb.init(

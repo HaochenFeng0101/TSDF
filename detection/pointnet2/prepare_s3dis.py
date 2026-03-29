@@ -7,7 +7,19 @@ from urllib.request import urlretrieve
 
 import numpy as np
 
+'''
+cd /home/haochen/code/TSDF
+python3 detection/pointnet2/prepare_s3dis.py \
+  --raw-root data/S3DIS_raw \
+  --areas Area_1 Area_2 Area_3 Area_4 Area_5 Area_6 \
+  --val-areas Area_6 \
+  --output-root data/S3DIS_seg \
+  --block-size 1.0 \
+  --stride 0.5 \
+  --min-block-points 1024 
 
+
+'''
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TSDF_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
@@ -157,7 +169,7 @@ def ensure_full_dataset_available(raw_root, archive_dir, full_url, skip_existing
 
     extract_archive(archive_path, raw_root)
     if not aligned_root.exists():
-        raise RuntimeError(f"已下载并解压 {archive_path}，但没有找到 {aligned_root}")
+        raise RuntimeError(f"Downloaded and extracted {archive_path}, but {aligned_root} was not found.")
     return aligned_root
 
 
@@ -180,12 +192,12 @@ def ensure_area_available(area_name, raw_root, archive_dir=None, url_template=No
         area_dir = find_area_dir(raw_root, area_name)
         if area_dir is not None:
             return area_dir
-        raise FileNotFoundError(f"已准备完整 S3DIS 数据，但仍然找不到 {area_name}，检查解压结构: {full_root}")
+        raise FileNotFoundError(f"Prepared the full S3DIS dataset, but {area_name} is still missing. Check the extracted structure under {full_root}.")
 
     extract_archive(archive_path, raw_root)
     area_dir = find_area_dir(raw_root, area_name)
     if area_dir is None:
-        raise RuntimeError(f"已解压 {archive_path}，但仍然找不到 {area_name} 目录。")
+        raise RuntimeError(f"Extracted {archive_path}, but the {area_name} directory was not found.")
     return area_dir
 
 
@@ -208,7 +220,7 @@ def parse_annotation_file(path):
             rows.append(row)
 
     if not rows:
-        raise ValueError(f"{path} 没有可用的 xyzrgb 行。")
+        raise ValueError(f"{path} contains no usable xyzrgb rows.")
 
     points = np.asarray(rows, dtype=np.float32)
 
@@ -224,10 +236,10 @@ def parse_annotation_file(path):
     return points, labels
 
 
-def build_room_npz(area_dir, room_dir, output_path):
+def build_room_data(room_dir):
     annotations_dir = room_dir / "Annotations"
     if not annotations_dir.exists():
-        raise FileNotFoundError(f"缺少 Annotations 目录: {annotations_dir}")
+        raise FileNotFoundError(f"Missing Annotations directory: {annotations_dir}")
 
     all_points = []
     all_labels = []
@@ -237,83 +249,200 @@ def build_room_npz(area_dir, room_dir, output_path):
         all_labels.append(labels)
 
     if not all_points:
-        raise RuntimeError(f"{annotations_dir} 下没有可用标注文件。")
+        raise RuntimeError(f"No usable annotation files found under {annotations_dir}.")
 
     points = np.concatenate(all_points, axis=0)
     labels = np.concatenate(all_labels, axis=0)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(output_path, points=points, labels=labels)
-    return len(points)
+    points[:, 3:6] = np.clip(points[:, 3:6] / 255.0, 0.0, 1.0)
+    return points, labels
 
 
-def process_area(area_dir, output_root, val_areas):
+def compute_room_normalized_xyz(points):
+    xyz = points[:, :3].astype(np.float32)
+    mins = xyz.min(axis=0, keepdims=True)
+    maxs = xyz.max(axis=0, keepdims=True)
+    span = np.maximum(maxs - mins, 1e-6)
+    return (xyz - mins) / span
+
+
+def slice_room_blocks(points, labels, block_size, stride, min_points, max_blocks_per_room=0):
+    xyz = points[:, :3]
+    x_min, y_min = xyz[:, 0].min(), xyz[:, 1].min()
+    x_max, y_max = xyz[:, 0].max(), xyz[:, 1].max()
+    room_norm_xyz = compute_room_normalized_xyz(points)
+
+    x_starts = np.arange(x_min, x_max + 1e-6, stride, dtype=np.float32)
+    y_starts = np.arange(y_min, y_max + 1e-6, stride, dtype=np.float32)
+
+    blocks = []
+    for x0 in x_starts:
+        for y0 in y_starts:
+            x1 = x0 + block_size
+            y1 = y0 + block_size
+            mask = (
+                (xyz[:, 0] >= x0)
+                & (xyz[:, 0] <= x1)
+                & (xyz[:, 1] >= y0)
+                & (xyz[:, 1] <= y1)
+            )
+            indices = np.where(mask)[0]
+            if len(indices) < min_points:
+                continue
+
+            block_points = points[indices]
+            block_labels = labels[indices]
+            block_room_norm = room_norm_xyz[indices]
+            block_features = np.concatenate([block_points, block_room_norm], axis=1).astype(np.float32)
+            blocks.append(
+                {
+                    "points": block_features,
+                    "labels": block_labels.astype(np.int64),
+                    "num_points": int(len(indices)),
+                    "bounds": [float(x0), float(y0), float(x1), float(y1)],
+                }
+            )
+            if max_blocks_per_room > 0 and len(blocks) >= max_blocks_per_room:
+                return blocks
+
+    if not blocks:
+        full_features = np.concatenate([points, room_norm_xyz], axis=1).astype(np.float32)
+        blocks.append(
+            {
+                "points": full_features,
+                "labels": labels.astype(np.int64),
+                "num_points": int(len(labels)),
+                "bounds": None,
+            }
+        )
+    return blocks
+
+
+def cleanup_split_outputs(output_root, areas):
+    area_prefixes = tuple(f"{area}_" for area in areas)
+    removed = 0
+    for split in ("train", "val"):
+        split_dir = output_root / split
+        if not split_dir.exists():
+            continue
+        for path in split_dir.glob("*.npz"):
+            if path.name.startswith(area_prefixes):
+                path.unlink(missing_ok=True)
+                removed += 1
+    return removed
+
+
+def process_area(area_dir, output_root, val_areas, block_size, stride, min_block_points, max_blocks_per_room):
     area_name = area_dir.name
     split = "val" if area_name in val_areas else "train"
     room_dirs = sorted(path for path in area_dir.iterdir() if path.is_dir())
     summaries = []
 
     for room_dir in room_dirs:
-        output_name = f"{area_name}_{room_dir.name}.npz"
-        output_path = output_root / split / output_name
-        num_points = build_room_npz(area_dir, room_dir, output_path)
-        summaries.append(
-            {
-                "area": area_name,
-                "room": room_dir.name,
-                "split": split,
-                "points": int(num_points),
-                "output": str(output_path),
-            }
+        room_points, room_labels = build_room_data(room_dir)
+        num_room_points = len(room_points)
+        blocks = slice_room_blocks(
+            room_points,
+            room_labels,
+            block_size=block_size,
+            stride=stride,
+            min_points=min_block_points,
+            max_blocks_per_room=max_blocks_per_room,
         )
-        print(f"Prepared {output_name} -> split={split} | points={num_points}")
+
+        for block_idx, block in enumerate(blocks):
+            output_name = f"{area_name}_{room_dir.name}_block_{block_idx:03d}.npz"
+            output_path = output_root / split / output_name
+            np.savez_compressed(output_path, points=block["points"], labels=block["labels"])
+            summaries.append(
+                {
+                    "area": area_name,
+                    "room": room_dir.name,
+                    "split": split,
+                    "room_points": int(num_room_points),
+                    "block_points": int(block["num_points"]),
+                    "block_index": int(block_idx),
+                    "bounds": block["bounds"],
+                    "output": str(output_path),
+                }
+            )
+            print(f"Prepared {output_name} -> split={split} | block_points={block['num_points']}")
     return summaries
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="按需准备 S3DIS 为 PointNet++ 分割训练格式，不下载全量无关数据。"
+        description="Prepare S3DIS for PointNet++ segmentation training on demand without downloading unrelated large datasets."
     )
     parser.add_argument(
         "--raw-root",
         default=str(TSDF_ROOT / "data" / "S3DIS_raw"),
-        help="S3DIS 解压根目录。",
+        help="Root directory for extracted S3DIS data.",
     )
     parser.add_argument(
         "--archive-dir",
         default=None,
-        help="可选，本地 S3DIS 压缩包目录。可放整包或 Area 压缩包。",
+        help="Optional local S3DIS archive directory. Can contain the full archive or per-Area archives.",
     )
     parser.add_argument(
         "--url-template",
         default=None,
-        help="可选，Area 下载 URL 模板，例如 https://.../{area}.zip",
+        help="Optional Area download URL template, for example https://.../{area}.zip",
     )
     parser.add_argument(
         "--full-url",
         default=DEFAULT_FULL_URL,
-        help="整包 S3DIS 对齐版下载地址。默认使用 ETHZ 公开镜像。",
+        help="Download URL for the full aligned S3DIS archive. Defaults to the ETHZ public mirror.",
     )
     parser.add_argument(
         "--areas",
         nargs="+",
         default=["Area_1", "Area_2", "Area_3", "Area_4", "Area_5", "Area_6"],
-        help="需要准备的 Area 列表。",
+        help="List of Areas to prepare.",
     )
     parser.add_argument(
         "--val-areas",
         nargs="+",
         default=["Area_6"],
-        help="作为验证集的 Area，默认 Area_6。",
+        help="Areas to use for validation. Defaults to Area_6.",
     )
     parser.add_argument(
         "--output-root",
         default=str(TSDF_ROOT / "data" / "S3DIS_seg"),
-        help="输出根目录，生成 train/ 和 val/ 的 .npz。",
+        help="Output root directory. Creates train/ and val/ .npz files.",
     )
     parser.add_argument(
         "--skip-existing",
         action="store_true",
-        help="如果 Area 已存在压缩包或已解压目录，则直接复用。",
+        help="Reuse existing archives or extracted Areas when available.",
+    )
+    parser.add_argument(
+        "--block-size",
+        type=float,
+        default=1.0,
+        help="XY block size in meters for room slicing.",
+    )
+    parser.add_argument(
+        "--stride",
+        type=float,
+        default=0.5,
+        help="XY stride in meters for room slicing.",
+    )
+    parser.add_argument(
+        "--min-block-points",
+        type=int,
+        default=1024,
+        help="Minimum number of points required to keep a block.",
+    )
+    parser.add_argument(
+        "--max-blocks-per-room",
+        type=int,
+        default=0,
+        help="Optional cap on the number of blocks per room. Use 0 for no cap.",
+    )
+    parser.add_argument(
+        "--skip-clean-output",
+        action="store_true",
+        help="Keep existing processed .npz files for the selected Areas instead of clearing them first.",
     )
     args = parser.parse_args()
 
@@ -322,6 +451,11 @@ def main():
     output_root = Path(args.output_root)
     (output_root / "train").mkdir(parents=True, exist_ok=True)
     (output_root / "val").mkdir(parents=True, exist_ok=True)
+
+    if not args.skip_clean_output:
+        removed = cleanup_split_outputs(output_root, args.areas)
+        if removed:
+            print(f"Removed {removed} existing processed files before regeneration.")
 
     summaries = []
     for area_name in args.areas:
@@ -333,8 +467,17 @@ def main():
             full_url=args.full_url,
             skip_existing=args.skip_existing,
         )
-        summaries.extend(process_area(area_dir, output_root, set(args.val_areas)))
-
+        summaries.extend(
+            process_area(
+                area_dir,
+                output_root,
+                set(args.val_areas),
+                block_size=args.block_size,
+                stride=args.stride,
+                min_block_points=args.min_block_points,
+                max_blocks_per_room=args.max_blocks_per_room,
+            )
+        )
     labels_path = output_root / "labels.txt"
     write_labels(labels_path)
 
@@ -343,8 +486,8 @@ def main():
 
     train_count = sum(1 for item in summaries if item["split"] == "train")
     val_count = sum(1 for item in summaries if item["split"] == "val")
-    print(f"Prepared train rooms: {train_count}")
-    print(f"Prepared val rooms: {val_count}")
+    print(f"Prepared train blocks: {train_count}")
+    print(f"Prepared val blocks: {val_count}")
     print(f"Labels file: {labels_path}")
     print(f"Summary: {output_root / 'summary.json'}")
 

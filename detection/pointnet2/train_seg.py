@@ -7,7 +7,24 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, get_worker_info
+
+
+'''
+python3 detection/pointnet2/train_seg.py \
+  --data-root data/S3DIS_seg \
+  --num-classes 13 \
+  --labels data/S3DIS_seg/labels.txt \
+  --num-points 4096 \
+  --batch-size 8 \
+  --epochs 100 \
+  --use-color \
+  --use-room-coords \
+  --use-class-weights
+
+
+'''
+
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -48,6 +65,25 @@ def normalize_xyz(points):
     return points
 
 
+def select_input_features(points, use_color, use_room_coords):
+    if points.shape[1] < 3:
+        raise ValueError(f"Expected at least xyz coordinates, got shape {points.shape}")
+
+    features = [points[:, :3]]
+    if use_color:
+        if points.shape[1] < 6:
+            raise ValueError(f"Color features requested, but point shape is {points.shape}")
+        colors = points[:, 3:6].astype(np.float32)
+        if colors.size > 0 and colors.max() > 1.0:
+            colors = colors / 255.0
+        features.append(np.clip(colors, 0.0, 1.0))
+    if use_room_coords:
+        if points.shape[1] < 9:
+            raise ValueError(f"Room coordinates requested, but point shape is {points.shape}")
+        features.append(points[:, 6:9])
+    return np.concatenate(features, axis=1).astype(np.float32)
+
+
 def load_seg_sample(path):
     path = Path(path)
     suffix = path.suffix.lower()
@@ -63,72 +99,80 @@ def load_seg_sample(path):
             points = payload["points"]
             labels = payload["labels"]
         else:
-            raise ValueError(f"{path} 需要是包含 points/labels 的 dict-like npy。")
+            raise ValueError(f"{path} must be a dict-like npy containing points/labels.")
     elif suffix in {".pcd", ".ply"}:
         if o3d is None:
-            raise RuntimeError("读取 .pcd/.ply 需要安装 open3d。")
+            raise RuntimeError("open3d is required to read .pcd/.ply files.")
         cloud = o3d.io.read_point_cloud(str(path))
         if cloud.is_empty():
-            raise ValueError(f"空点云: {path}")
+            raise ValueError(f"Empty point cloud: {path}")
         label_path = path.with_name(f"{path.stem}_labels.npy")
         if not label_path.exists():
-            raise FileNotFoundError(f"缺少标签文件: {label_path}")
+            raise FileNotFoundError(f"Missing label file: {label_path}")
         points = np.asarray(cloud.points, dtype=np.float32)
         if cloud.has_colors():
             colors = np.asarray(cloud.colors, dtype=np.float32)
             points = np.concatenate([points, colors], axis=1)
         labels = np.load(label_path).astype(np.int64)
     else:
-        raise ValueError(f"不支持的分割样本格式: {path}")
+        raise ValueError(f"Unsupported segmentation sample format: {path}")
 
     points = np.asarray(points, dtype=np.float32)
     labels = np.asarray(labels, dtype=np.int64).reshape(-1)
     if points.ndim != 2 or points.shape[1] < 3:
-        raise ValueError(f"{path} 的 points 需要是 Nx3 或 Nx6，当前是 {points.shape}")
+        raise ValueError(f"{path} points must be Nx3 or wider, got {points.shape}")
     if len(points) != len(labels):
-        raise ValueError(f"{path} 的 points 和 labels 数量不一致: {len(points)} vs {len(labels)}")
+        raise ValueError(f"{path} points/labels length mismatch: {len(points)} vs {len(labels)}")
     return points, labels
 
 
 class SceneSegDataset(Dataset):
-    def __init__(self, root, split, num_points=4096, use_color=True, augment=False, seed=0):
+    def __init__(self, root, split, num_points=4096, use_color=True, use_room_coords=False, augment=False, seed=0):
         self.root = Path(root)
         self.split = split
         self.num_points = num_points
         self.use_color = use_color
+        self.use_room_coords = use_room_coords
         self.augment = augment
-        self.rng = np.random.default_rng(seed)
+        self.seed = int(seed)
 
         split_dir = self.root / split
         if not split_dir.exists():
-            raise FileNotFoundError(f"找不到 split 目录: {split_dir}")
+            raise FileNotFoundError(f"Split directory not found: {split_dir}")
 
         self.files = sorted(
             path for path in split_dir.iterdir() if path.suffix.lower() in {".npz", ".npy", ".pcd", ".ply"}
         )
         if not self.files:
-            raise RuntimeError(f"{split_dir} 下没有可用样本。")
+            raise RuntimeError(f"No usable samples found under {split_dir}.")
 
     def __len__(self):
         return len(self.files)
 
+    def _make_rng(self, idx):
+        if self.augment:
+            worker_info = get_worker_info()
+            worker_seed = worker_info.seed if worker_info is not None else self.seed
+            return np.random.default_rng(worker_seed + idx)
+        return np.random.default_rng(self.seed + idx)
+
     def __getitem__(self, idx):
+        rng = self._make_rng(idx)
         points, labels = load_seg_sample(self.files[idx])
-        if points.shape[1] > 3 and not self.use_color:
-            points = points[:, :3]
+        points = select_input_features(points, self.use_color, self.use_room_coords)
 
         points = normalize_xyz(points)
 
         if len(points) >= self.num_points:
-            choice = self.rng.choice(len(points), self.num_points, replace=False)
+            choice = rng.choice(len(points), self.num_points, replace=False)
         else:
-            choice = self.rng.choice(len(points), self.num_points, replace=True)
+            choice = rng.choice(len(points), self.num_points, replace=True)
 
         points = points[choice]
         labels = labels[choice]
 
         if self.augment:
-            theta = self.rng.uniform(0.0, 2.0 * np.pi)
+            theta = rng.uniform(0.0, 2.0 * np.pi)
             cos_theta = np.cos(theta)
             sin_theta = np.sin(theta)
             rotation = np.array(
@@ -208,17 +252,17 @@ def evaluate(model, dataloader, device, num_classes, ignore_index=-100, class_we
 
 def main():
     parser = argparse.ArgumentParser(
-        description="训练 PointNet++ 语义分割模型。"
+        description="Train a PointNet++ semantic segmentation model."
     )
     parser.add_argument(
         "--data-root",
         required=True,
-        help="数据根目录。需要有 train/ 和 val/ 子目录，里面放 .npz/.npy/.pcd/.ply 样本。",
+        help="Dataset root. Expected train/ and val/ subdirectories containing .npz/.npy/.pcd/.ply samples.",
     )
     parser.add_argument(
         "--labels",
         default=None,
-        help="可选标签文件，每行一个类别名。",
+        help="Optional label file, one class name per line.",
     )
     parser.add_argument("--num-classes", type=int, required=True)
     parser.add_argument("--num-points", type=int, default=4096)
@@ -231,11 +275,12 @@ def main():
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--ignore-index", type=int, default=-100)
     parser.add_argument("--use-color", action="store_true")
+    parser.add_argument("--use-room-coords", action="store_true")
     parser.add_argument("--use-class-weights", action="store_true")
     parser.add_argument(
         "--output-dir",
-        default=str(TSDF_ROOT / "model" / "pointnet2_seg"),
-        help="模型输出目录。",
+        default=str(TSDF_ROOT / "seg_model" / "pointnet2"),
+        help="Model output directory.",
     )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
@@ -249,6 +294,7 @@ def main():
         split="train",
         num_points=args.num_points,
         use_color=args.use_color,
+        use_room_coords=args.use_room_coords,
         augment=True,
         seed=args.seed,
     )
@@ -257,6 +303,7 @@ def main():
         split="val",
         num_points=args.num_points,
         use_color=args.use_color,
+        use_room_coords=args.use_room_coords,
         augment=False,
         seed=args.seed + 1,
     )
@@ -275,7 +322,7 @@ def main():
         drop_last=False,
     )
 
-    input_channels = 6 if args.use_color else 3
+    input_channels = 3 + (3 if args.use_color else 0) + (3 if args.use_room_coords else 0)
     labels = load_labels(args.labels, args.num_classes)
     with open(output_dir / "labels.txt", "w", encoding="utf-8") as handle:
         for label in labels:

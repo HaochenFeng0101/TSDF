@@ -23,6 +23,7 @@ python3 detection/pointnet2/train_seg.py \
   --use-class-weights
 
 
+
 '''
 
 

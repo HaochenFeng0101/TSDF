@@ -209,6 +209,15 @@ def compute_class_weights(dataset, num_classes, sample_cap=200):
     return torch.from_numpy(weights.astype(np.float32))
 
 
+def format_per_class_iou(label_names, per_class_iou):
+    parts = []
+    for class_idx, label_name in enumerate(label_names):
+        iou = per_class_iou[class_idx]
+        value = "n/a" if iou is None else f"{iou:.3f}"
+        parts.append(f"{label_name}={value}")
+    return " | ".join(parts)
+
+
 def evaluate(model, dataloader, device, num_classes, ignore_index=-100, class_weights=None):
     model.eval()
     total_loss = 0.0
@@ -250,7 +259,16 @@ def evaluate(model, dataloader, device, num_classes, ignore_index=-100, class_we
 
     iou = total_iou_inter / np.maximum(total_iou_union, 1.0)
     miou = float(iou.mean())
-    return total_loss / max(total_seen, 1), total_correct / max(total_seen, 1), miou
+    per_class_iou = [
+        (float(iou[class_idx]) if total_iou_union[class_idx] > 0 else None)
+        for class_idx in range(num_classes)
+    ]
+    return (
+        total_loss / max(total_seen, 1),
+        total_correct / max(total_seen, 1),
+        miou,
+        per_class_iou,
+    )
 
 
 def main():
@@ -381,7 +399,7 @@ def main():
 
         train_loss = total_loss / max(total_seen, 1)
         train_acc = total_correct / max(total_seen, 1)
-        val_loss, val_acc, val_miou = evaluate(
+        val_loss, val_acc, val_miou, val_per_class_iou = evaluate(
             model,
             val_loader,
             args.device,
@@ -399,6 +417,10 @@ def main():
                 "val_loss": val_loss,
                 "val_acc": val_acc,
                 "val_miou": val_miou,
+                "val_per_class_iou": {
+                    label_name: val_per_class_iou[class_idx]
+                    for class_idx, label_name in enumerate(labels)
+                },
             }
         )
 
@@ -406,6 +428,7 @@ def main():
             f"epoch {epoch:03d} | train_loss {train_loss:.4f} | train_acc {train_acc:.4f} | "
             f"val_loss {val_loss:.4f} | val_acc {val_acc:.4f} | val_mIoU {val_miou:.4f}"
         )
+        print(f"val_per_class_iou | {format_per_class_iou(labels, val_per_class_iou)}")
 
         checkpoint = {
             "epoch": epoch,

@@ -8,17 +8,9 @@ from urllib.request import urlretrieve
 import numpy as np
 
 '''
-cd /home/haochen/code/TSDF
-python3 detection/pointnet2/prepare_s3dis.py \
-  --raw-root data/S3DIS_raw \
-  --areas Area_1 Area_2 Area_3 Area_4 Area_5 Area_6 \
-  --val-areas Area_6 \
-  --output-root data/S3DIS_seg \
-  --block-size 1.0 \
-  --stride 0.5 \
-  --min-block-points 1024 
+python3 detection/pointnet2/prepare_s3dis.py
 
-
+https://cvg-data.inf.ethz.ch/s3dis/
 '''
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TSDF_ROOT = Path(__file__).resolve().parents[2]
@@ -43,11 +35,22 @@ S3DIS_LABELS = [
 LABEL_TO_INDEX = {label: idx for idx, label in enumerate(S3DIS_LABELS)}
 ARCHIVE_EXTS = [".zip", ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz"]
 DEFAULT_FULL_URL = "https://cvg-data.inf.ethz.ch/s3dis/Stanford3dDataset_v1.2_Aligned_Version.zip"
+DEFAULT_RAW_ROOT = Path("data") / "S3DIS_raw"
+DEFAULT_OUTPUT_ROOT = Path("data") / "S3DIS_seg"
+DEFAULT_AREAS = ["Area_1", "Area_2", "Area_3", "Area_4", "Area_5", "Area_6"]
+DEFAULT_VAL_AREAS = ["Area_6"]
 
 try:
     from tqdm import tqdm
 except Exception:
     tqdm = None
+
+
+def resolve_repo_path(path_str):
+    path = Path(path_str)
+    if not path.is_absolute():
+        path = TSDF_ROOT / path
+    return path
 
 
 def download(url, destination):
@@ -257,6 +260,12 @@ def build_room_data(room_dir):
     return points, labels
 
 
+def list_room_dirs(area_dir):
+    return sorted(
+        path for path in area_dir.iterdir() if path.is_dir() and (path / "Annotations").is_dir()
+    )
+
+
 def compute_room_normalized_xyz(points):
     xyz = points[:, :3].astype(np.float32)
     mins = xyz.min(axis=0, keepdims=True)
@@ -331,10 +340,19 @@ def cleanup_split_outputs(output_root, areas):
     return removed
 
 
-def process_area(area_dir, output_root, val_areas, block_size, stride, min_block_points, max_blocks_per_room):
+def process_area(
+    area_dir,
+    output_root,
+    val_areas,
+    block_size,
+    stride,
+    min_block_points,
+    max_blocks_per_room,
+    progress_bar=None,
+):
     area_name = area_dir.name
     split = "val" if area_name in val_areas else "train"
-    room_dirs = sorted(path for path in area_dir.iterdir() if path.is_dir())
+    room_dirs = list_room_dirs(area_dir)
     summaries = []
 
     for room_dir in room_dirs:
@@ -365,7 +383,12 @@ def process_area(area_dir, output_root, val_areas, block_size, stride, min_block
                     "output": str(output_path),
                 }
             )
-            print(f"Prepared {output_name} -> split={split} | block_points={block['num_points']}")
+        if progress_bar is not None:
+            progress_bar.update(1)
+            progress_bar.set_postfix_str(
+                f"{area_name}/{room_dir.name} blocks={len(blocks)}",
+                refresh=False,
+            )
     return summaries
 
 
@@ -375,8 +398,8 @@ def main():
     )
     parser.add_argument(
         "--raw-root",
-        default=str(TSDF_ROOT / "data" / "S3DIS_raw"),
-        help="Root directory for extracted S3DIS data.",
+        default=str(DEFAULT_RAW_ROOT),
+        help="Root directory for extracted S3DIS data. Defaults to data/S3DIS_raw under the repository root.",
     )
     parser.add_argument(
         "--archive-dir",
@@ -396,19 +419,19 @@ def main():
     parser.add_argument(
         "--areas",
         nargs="+",
-        default=["Area_1", "Area_2", "Area_3", "Area_4", "Area_5", "Area_6"],
+        default=DEFAULT_AREAS,
         help="List of Areas to prepare.",
     )
     parser.add_argument(
         "--val-areas",
         nargs="+",
-        default=["Area_6"],
+        default=DEFAULT_VAL_AREAS,
         help="Areas to use for validation. Defaults to Area_6.",
     )
     parser.add_argument(
         "--output-root",
-        default=str(TSDF_ROOT / "data" / "S3DIS_seg"),
-        help="Output root directory. Creates train/ and val/ .npz files.",
+        default=str(DEFAULT_OUTPUT_ROOT),
+        help="Output root directory. Creates train/ and val/ .npz files. Defaults to data/S3DIS_seg under the repository root.",
     )
     parser.add_argument(
         "--skip-existing",
@@ -446,9 +469,10 @@ def main():
     )
     args = parser.parse_args()
 
-    raw_root = Path(args.raw_root)
+    raw_root = resolve_repo_path(args.raw_root)
     raw_root.mkdir(parents=True, exist_ok=True)
-    output_root = Path(args.output_root)
+    archive_dir = resolve_repo_path(args.archive_dir) if args.archive_dir is not None else None
+    output_root = resolve_repo_path(args.output_root)
     (output_root / "train").mkdir(parents=True, exist_ok=True)
     (output_root / "val").mkdir(parents=True, exist_ok=True)
 
@@ -457,27 +481,42 @@ def main():
         if removed:
             print(f"Removed {removed} existing processed files before regeneration.")
 
-    summaries = []
+    area_dirs = []
     for area_name in args.areas:
-        area_dir = ensure_area_available(
-            area_name=area_name,
-            raw_root=raw_root,
-            archive_dir=args.archive_dir,
-            url_template=args.url_template,
-            full_url=args.full_url,
-            skip_existing=args.skip_existing,
-        )
-        summaries.extend(
-            process_area(
-                area_dir,
-                output_root,
-                set(args.val_areas),
-                block_size=args.block_size,
-                stride=args.stride,
-                min_block_points=args.min_block_points,
-                max_blocks_per_room=args.max_blocks_per_room,
+        area_dirs.append(
+            ensure_area_available(
+                area_name=area_name,
+                raw_root=raw_root,
+                archive_dir=archive_dir,
+                url_template=args.url_template,
+                full_url=args.full_url,
+                skip_existing=args.skip_existing,
             )
         )
+
+    total_rooms = sum(len(list_room_dirs(area_dir)) for area_dir in area_dirs)
+    progress_bar = None
+    if tqdm is not None:
+        progress_bar = tqdm(total=total_rooms, desc="prepare_s3dis", dynamic_ncols=True)
+
+    summaries = []
+    try:
+        for area_dir in area_dirs:
+            summaries.extend(
+                process_area(
+                    area_dir,
+                    output_root,
+                    set(args.val_areas),
+                    block_size=args.block_size,
+                    stride=args.stride,
+                    min_block_points=args.min_block_points,
+                    max_blocks_per_room=args.max_blocks_per_room,
+                    progress_bar=progress_bar,
+                )
+            )
+    finally:
+        if progress_bar is not None:
+            progress_bar.close()
     labels_path = output_root / "labels.txt"
     write_labels(labels_path)
 

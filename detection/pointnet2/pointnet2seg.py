@@ -178,10 +178,13 @@ class PointNetFeaturePropagation(nn.Module):
         return self.mlp(new_points)
 
 
+SEG_INPUT_CHANNELS = 9
+
+
 class PointNet2SemSegSSG(nn.Module):
-    def __init__(self, num_classes=13, input_channels=3, dropout=0.5):
+    def __init__(self, num_classes=13, dropout=0.5):
         super().__init__()
-        extra_channels = max(input_channels - 3, 0)
+        extra_channels = SEG_INPUT_CHANNELS - 3
         self.sa1 = PointNetSetAbstraction(
             npoint=1024,
             radius=0.1,
@@ -222,11 +225,14 @@ class PointNet2SemSegSSG(nn.Module):
         self.bn1 = nn.BatchNorm1d(128)
         self.drop1 = nn.Dropout(dropout)
         self.conv2 = nn.Conv1d(128, num_classes, 1)
-        self.input_channels = input_channels
 
     def forward(self, x):
+        if x.ndim != 3 or x.shape[1] != SEG_INPUT_CHANNELS:
+            raise ValueError(
+                f"Expected input shape [B, {SEG_INPUT_CHANNELS}, N], got {tuple(x.shape)}"
+            )
         xyz = x[:, :3, :]
-        points = x[:, 3:, :] if self.input_channels > 3 else None
+        points = x[:, 3:, :]
 
         l1_xyz, l1_points = self.sa1(xyz, points)
         l2_xyz, l2_points = self.sa2(l1_xyz, l1_points)

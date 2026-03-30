@@ -11,19 +11,12 @@ from torch.utils.data import DataLoader, Dataset, get_worker_info
 
 
 '''
+python3 detection/pointnet2/train_seg.py
+
 python3 detection/pointnet2/train_seg.py \
-  --data-root data/S3DIS_seg \
-  --num-classes 13 \
-  --labels data/S3DIS_seg/labels.txt \
-  --num-points 4096 \
-  --batch-size 8 \
   --epochs 100 \
-  --use-color \
-  --use-room-coords \
+  --batch-size 8 \
   --use-class-weights
-
-
-
 '''
 
 
@@ -33,7 +26,7 @@ TSDF_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from TSDF.detection.pointnet2.pointnet2seg import PointNet2SemSegSSG
+from TSDF.detection.pointnet2.pointnet2seg import PointNet2SemSegSSG, SEG_INPUT_CHANNELS
 
 try:
     from tqdm import tqdm
@@ -46,12 +39,24 @@ except Exception:
     o3d = None
 
 
+DEFAULT_DATA_ROOT = Path("data") / "S3DIS_seg"
+DEFAULT_LABELS_PATH = DEFAULT_DATA_ROOT / "labels.txt"
+DEFAULT_OUTPUT_DIR = Path("seg_model") / "pointnet2"
+
+
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+
+def resolve_repo_path(path_str):
+    path = Path(path_str)
+    if not path.is_absolute():
+        path = TSDF_ROOT / path
+    return path
 
 
 def normalize_xyz(points):
@@ -66,23 +71,22 @@ def normalize_xyz(points):
     return points
 
 
-def select_input_features(points, use_color, use_room_coords):
+def select_input_features(points):
     if points.shape[1] < 3:
         raise ValueError(f"Expected at least xyz coordinates, got shape {points.shape}")
 
-    features = [points[:, :3]]
-    if use_color:
-        if points.shape[1] < 6:
-            raise ValueError(f"Color features requested, but point shape is {points.shape}")
-        colors = points[:, 3:6].astype(np.float32)
-        if colors.size > 0 and colors.max() > 1.0:
-            colors = colors / 255.0
-        features.append(np.clip(colors, 0.0, 1.0))
-    if use_room_coords:
-        if points.shape[1] < 9:
-            raise ValueError(f"Room coordinates requested, but point shape is {points.shape}")
-        features.append(points[:, 6:9])
-    return np.concatenate(features, axis=1).astype(np.float32)
+    if points.shape[1] < SEG_INPUT_CHANNELS:
+        raise ValueError(
+            f"Expected segmentation points with at least {SEG_INPUT_CHANNELS} channels "
+            f"(xyz + rgb + room_coords), got shape {points.shape}"
+        )
+
+    features = points[:, :SEG_INPUT_CHANNELS].astype(np.float32).copy()
+    colors = features[:, 3:6]
+    if colors.size > 0 and colors.max() > 1.0:
+        colors = colors / 255.0
+    features[:, 3:6] = np.clip(colors, 0.0, 1.0)
+    return features
 
 
 def load_seg_sample(path):
@@ -128,12 +132,10 @@ def load_seg_sample(path):
 
 
 class SceneSegDataset(Dataset):
-    def __init__(self, root, split, num_points=4096, use_color=True, use_room_coords=False, augment=False, seed=0):
+    def __init__(self, root, split, num_points=4096, augment=False, seed=0):
         self.root = Path(root)
         self.split = split
         self.num_points = num_points
-        self.use_color = use_color
-        self.use_room_coords = use_room_coords
         self.augment = augment
         self.seed = int(seed)
 
@@ -160,7 +162,7 @@ class SceneSegDataset(Dataset):
     def __getitem__(self, idx):
         rng = self._make_rng(idx)
         points, labels = load_seg_sample(self.files[idx])
-        points = select_input_features(points, self.use_color, self.use_room_coords)
+        points = select_input_features(points)
 
         points = normalize_xyz(points)
 
@@ -207,6 +209,15 @@ def compute_class_weights(dataset, num_classes, sample_cap=200):
     return torch.from_numpy(weights.astype(np.float32))
 
 
+def format_per_class_iou(label_names, per_class_iou):
+    parts = []
+    for class_idx, label_name in enumerate(label_names):
+        iou = per_class_iou[class_idx]
+        value = "n/a" if iou is None else f"{iou:.3f}"
+        parts.append(f"{label_name}={value}")
+    return " | ".join(parts)
+
+
 def evaluate(model, dataloader, device, num_classes, ignore_index=-100, class_weights=None):
     model.eval()
     total_loss = 0.0
@@ -248,7 +259,16 @@ def evaluate(model, dataloader, device, num_classes, ignore_index=-100, class_we
 
     iou = total_iou_inter / np.maximum(total_iou_union, 1.0)
     miou = float(iou.mean())
-    return total_loss / max(total_seen, 1), total_correct / max(total_seen, 1), miou
+    per_class_iou = [
+        (float(iou[class_idx]) if total_iou_union[class_idx] > 0 else None)
+        for class_idx in range(num_classes)
+    ]
+    return (
+        total_loss / max(total_seen, 1),
+        total_correct / max(total_seen, 1),
+        miou,
+        per_class_iou,
+    )
 
 
 def main():
@@ -257,15 +277,15 @@ def main():
     )
     parser.add_argument(
         "--data-root",
-        required=True,
-        help="Dataset root. Expected train/ and val/ subdirectories containing .npz/.npy/.pcd/.ply samples.",
+        default=str(DEFAULT_DATA_ROOT),
+        help="Dataset root. Defaults to data/S3DIS_seg under the repository root.",
     )
     parser.add_argument(
         "--labels",
-        default=None,
-        help="Optional label file, one class name per line.",
+        default=str(DEFAULT_LABELS_PATH),
+        help="Label file, one class name per line. Defaults to data/S3DIS_seg/labels.txt.",
     )
-    parser.add_argument("--num-classes", type=int, required=True)
+    parser.add_argument("--num-classes", type=int, default=13)
     parser.add_argument("--num-points", type=int, default=4096)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--epochs", type=int, default=100)
@@ -275,36 +295,32 @@ def main():
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--ignore-index", type=int, default=-100)
-    parser.add_argument("--use-color", action="store_true")
-    parser.add_argument("--use-room-coords", action="store_true")
     parser.add_argument("--use-class-weights", action="store_true")
     parser.add_argument(
         "--output-dir",
-        default=str(TSDF_ROOT / "seg_model" / "pointnet2"),
-        help="Model output directory.",
+        default=str(DEFAULT_OUTPUT_DIR),
+        help="Model output directory. Defaults to seg_model/pointnet2 under the repository root.",
     )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
 
     set_seed(args.seed)
-    output_dir = Path(args.output_dir)
+    data_root = resolve_repo_path(args.data_root)
+    labels_path = resolve_repo_path(args.labels) if args.labels is not None else None
+    output_dir = resolve_repo_path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     train_dataset = SceneSegDataset(
-        root=args.data_root,
+        root=data_root,
         split="train",
         num_points=args.num_points,
-        use_color=args.use_color,
-        use_room_coords=args.use_room_coords,
         augment=True,
         seed=args.seed,
     )
     val_dataset = SceneSegDataset(
-        root=args.data_root,
+        root=data_root,
         split="val",
         num_points=args.num_points,
-        use_color=args.use_color,
-        use_room_coords=args.use_room_coords,
         augment=False,
         seed=args.seed + 1,
     )
@@ -323,24 +339,23 @@ def main():
         drop_last=False,
     )
 
-    input_channels = 3 + (3 if args.use_color else 0) + (3 if args.use_room_coords else 0)
-    labels = load_labels(args.labels, args.num_classes)
+    input_channels = SEG_INPUT_CHANNELS
+    labels = load_labels(labels_path, args.num_classes)
     with open(output_dir / "labels.txt", "w", encoding="utf-8") as handle:
         for label in labels:
             handle.write(f"{label}\n")
 
     print(f"train_samples={len(train_dataset)} | val_samples={len(val_dataset)} | num_classes={args.num_classes}")
-    print(f"device={args.device} | workers={args.workers} | batch_size={args.batch_size} | input_channels={input_channels}")
+    print(
+        f"device={args.device} | workers={args.workers} | batch_size={args.batch_size} | "
+        f"input_channels={input_channels}"
+    )
 
     class_weights = None
     if args.use_class_weights:
         class_weights = compute_class_weights(train_dataset, args.num_classes).to(args.device)
 
-    model = PointNet2SemSegSSG(
-        num_classes=args.num_classes,
-        input_channels=input_channels,
-        dropout=args.dropout,
-    ).to(args.device)
+    model = PointNet2SemSegSSG(num_classes=args.num_classes, dropout=args.dropout).to(args.device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=args.epochs, eta_min=max(args.lr * 0.01, 1e-5)
@@ -384,7 +399,7 @@ def main():
 
         train_loss = total_loss / max(total_seen, 1)
         train_acc = total_correct / max(total_seen, 1)
-        val_loss, val_acc, val_miou = evaluate(
+        val_loss, val_acc, val_miou, val_per_class_iou = evaluate(
             model,
             val_loader,
             args.device,
@@ -402,6 +417,10 @@ def main():
                 "val_loss": val_loss,
                 "val_acc": val_acc,
                 "val_miou": val_miou,
+                "val_per_class_iou": {
+                    label_name: val_per_class_iou[class_idx]
+                    for class_idx, label_name in enumerate(labels)
+                },
             }
         )
 
@@ -409,6 +428,7 @@ def main():
             f"epoch {epoch:03d} | train_loss {train_loss:.4f} | train_acc {train_acc:.4f} | "
             f"val_loss {val_loss:.4f} | val_acc {val_acc:.4f} | val_mIoU {val_miou:.4f}"
         )
+        print(f"val_per_class_iou | {format_per_class_iou(labels, val_per_class_iou)}")
 
         checkpoint = {
             "epoch": epoch,

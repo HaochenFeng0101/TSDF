@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset, get_worker_info
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler, get_worker_info
 
 
 '''
@@ -17,6 +17,12 @@ python3 detection/pointnet2/train_seg.py \
   --epochs 100 \
   --batch-size 8 \
   --use-class-weights
+  
+  conda run -n tsdf python detection/pointnet2/train_seg.py \
+  --use-class-weights \
+  --rare-class-sampling-ratio 0.35 \
+  --rare-class-weight-power 0.75
+
 '''
 
 
@@ -132,12 +138,29 @@ def load_seg_sample(path):
 
 
 class SceneSegDataset(Dataset):
-    def __init__(self, root, split, num_points=4096, augment=False, seed=0):
+    def __init__(
+        self,
+        root,
+        split,
+        num_points=4096,
+        num_classes=13,
+        augment=False,
+        seed=0,
+        rare_class_sampling_ratio=0.25,
+        rare_class_weight_power=0.5,
+    ):
         self.root = Path(root)
         self.split = split
         self.num_points = num_points
+        self.num_classes = num_classes
         self.augment = augment
         self.seed = int(seed)
+        self.rare_class_sampling_ratio = float(rare_class_sampling_ratio) if augment else 0.0
+        self.rare_class_weight_power = float(rare_class_weight_power)
+        self.global_label_counts = None
+        self.class_sampling_weights = None
+        self.file_sampling_weights = None
+        self.sampling_cache_path = None
 
         split_dir = self.root / split
         if not split_dir.exists():
@@ -148,6 +171,12 @@ class SceneSegDataset(Dataset):
         )
         if not self.files:
             raise RuntimeError(f"No usable samples found under {split_dir}.")
+        self.sampling_cache_path = (
+            self.root
+            / f".sampling_stats_{self.split}_c{self.num_classes}_rw{self.rare_class_weight_power:.3f}.npz"
+        )
+        if self.augment:
+            self._build_sampling_statistics()
 
     def __len__(self):
         return len(self.files)
@@ -159,6 +188,127 @@ class SceneSegDataset(Dataset):
             return np.random.default_rng(worker_seed + idx)
         return np.random.default_rng(self.seed + idx)
 
+    def _build_sampling_statistics(self):
+        cached = self._load_sampling_statistics_cache()
+        if cached is not None:
+            print(f"Using cached sampling stats: {self.sampling_cache_path}")
+            file_histograms, global_counts = cached
+        else:
+            print(
+                f"Building sampling stats for {self.split} split over {len(self.files)} files. "
+                f"This can take a while the first time."
+            )
+            file_histograms = []
+            global_counts = np.zeros(self.num_classes, dtype=np.float64)
+            iterator = self.files
+            if tqdm is not None:
+                iterator = tqdm(
+                    self.files,
+                    desc=f"sampling_stats_{self.split}",
+                    leave=False,
+                    dynamic_ncols=True,
+                )
+            for path in iterator:
+                _, labels = load_seg_sample(path)
+                hist = np.bincount(labels.astype(np.int64), minlength=self.num_classes).astype(np.float64)
+                file_histograms.append(hist)
+                global_counts += hist
+            file_histograms = np.asarray(file_histograms, dtype=np.float64)
+            self._save_sampling_statistics_cache(file_histograms, global_counts)
+            if self.sampling_cache_path is not None:
+                print(f"Saved sampling stats cache: {self.sampling_cache_path}")
+
+        safe_counts = global_counts.copy()
+        safe_counts[safe_counts == 0] = 1.0
+        class_weights = np.power(safe_counts.sum() / safe_counts, self.rare_class_weight_power)
+        class_weights = class_weights / np.maximum(class_weights.mean(), 1e-6)
+
+        file_scores = []
+        for hist in file_histograms:
+            total = np.maximum(hist.sum(), 1.0)
+            file_scores.append(float(np.dot(hist, class_weights) / total))
+        file_scores = np.asarray(file_scores, dtype=np.float64)
+        file_scores = file_scores / np.maximum(file_scores.mean(), 1e-6)
+
+        self.global_label_counts = global_counts
+        self.class_sampling_weights = class_weights.astype(np.float32)
+        self.file_sampling_weights = torch.as_tensor(file_scores, dtype=torch.double)
+
+    def _load_sampling_statistics_cache(self):
+        if self.sampling_cache_path is None or not self.sampling_cache_path.exists():
+            return None
+        try:
+            cache = np.load(self.sampling_cache_path, allow_pickle=False)
+            cached_paths = cache["paths"]
+            file_histograms = cache["file_histograms"].astype(np.float64)
+            global_counts = cache["global_counts"].astype(np.float64)
+        except Exception:
+            return None
+
+        current_paths = np.asarray([str(path.resolve()) for path in self.files])
+        if len(cached_paths) != len(current_paths):
+            return None
+        if not np.array_equal(cached_paths, current_paths):
+            return None
+        if file_histograms.shape != (len(self.files), self.num_classes):
+            return None
+        return file_histograms, global_counts
+
+    def _save_sampling_statistics_cache(self, file_histograms, global_counts):
+        if self.sampling_cache_path is None:
+            return
+        try:
+            np.savez_compressed(
+                self.sampling_cache_path,
+                paths=np.asarray([str(path.resolve()) for path in self.files]),
+                file_histograms=np.asarray(file_histograms, dtype=np.float32),
+                global_counts=np.asarray(global_counts, dtype=np.float64),
+            )
+        except Exception:
+            return
+
+    def _sample_point_indices(self, labels, rng):
+        total_points = len(labels)
+        if total_points >= self.num_points:
+            uniform_choice = rng.choice(total_points, self.num_points, replace=False)
+        else:
+            uniform_choice = rng.choice(total_points, self.num_points, replace=True)
+
+        if (
+            not self.augment
+            or self.rare_class_sampling_ratio <= 0.0
+            or self.class_sampling_weights is None
+            or self.num_points <= 1
+        ):
+            return uniform_choice.astype(np.int64)
+
+        rare_sample_count = int(round(self.num_points * self.rare_class_sampling_ratio))
+        rare_sample_count = max(0, min(self.num_points, rare_sample_count))
+        if rare_sample_count == 0:
+            return uniform_choice.astype(np.int64)
+
+        point_weights = self.class_sampling_weights[labels]
+        point_weight_sum = float(point_weights.sum())
+        if point_weight_sum <= 0:
+            return uniform_choice.astype(np.int64)
+        point_weights = point_weights / point_weight_sum
+
+        base_count = self.num_points - rare_sample_count
+        if base_count > 0:
+            base_choice = uniform_choice[:base_count]
+        else:
+            base_choice = np.empty((0,), dtype=np.int64)
+
+        rare_choice = rng.choice(
+            total_points,
+            rare_sample_count,
+            replace=total_points < rare_sample_count,
+            p=point_weights,
+        ).astype(np.int64)
+        choice = np.concatenate([base_choice, rare_choice], axis=0)
+        rng.shuffle(choice)
+        return choice
+
     def __getitem__(self, idx):
         rng = self._make_rng(idx)
         points, labels = load_seg_sample(self.files[idx])
@@ -166,10 +316,7 @@ class SceneSegDataset(Dataset):
 
         points = normalize_xyz(points)
 
-        if len(points) >= self.num_points:
-            choice = rng.choice(len(points), self.num_points, replace=False)
-        else:
-            choice = rng.choice(len(points), self.num_points, replace=True)
+        choice = self._sample_point_indices(labels, rng)
 
         points = points[choice]
         labels = labels[choice]
@@ -198,11 +345,15 @@ def load_labels(labels_path, num_classes):
 
 
 def compute_class_weights(dataset, num_classes, sample_cap=200):
-    counts = np.zeros(num_classes, dtype=np.float64)
-    limit = min(len(dataset), sample_cap)
-    for idx in range(limit):
-        _, labels = dataset[idx]
-        counts += np.bincount(labels.numpy(), minlength=num_classes)
+    counts = getattr(dataset, "global_label_counts", None)
+    if counts is None:
+        counts = np.zeros(num_classes, dtype=np.float64)
+        limit = min(len(dataset), sample_cap)
+        for idx in range(limit):
+            _, labels = dataset[idx]
+            counts += np.bincount(labels.numpy(), minlength=num_classes)
+    else:
+        counts = counts.astype(np.float64).copy()
     counts[counts == 0] = 1.0
     weights = counts.sum() / (len(counts) * counts)
     weights = weights / weights.mean()
@@ -297,6 +448,18 @@ def main():
     parser.add_argument("--ignore-index", type=int, default=-100)
     parser.add_argument("--use-class-weights", action="store_true")
     parser.add_argument(
+        "--rare-class-sampling-ratio",
+        type=float,
+        default=0.25,
+        help="Fraction of sampled training points to draw with rare-class-aware weighting.",
+    )
+    parser.add_argument(
+        "--rare-class-weight-power",
+        type=float,
+        default=0.5,
+        help="Exponent applied to inverse class frequency for rare-class-aware sampling.",
+    )
+    parser.add_argument(
         "--output-dir",
         default=str(DEFAULT_OUTPUT_DIR),
         help="Model output directory. Defaults to seg_model/pointnet2 under the repository root.",
@@ -314,20 +477,32 @@ def main():
         root=data_root,
         split="train",
         num_points=args.num_points,
+        num_classes=args.num_classes,
         augment=True,
         seed=args.seed,
+        rare_class_sampling_ratio=args.rare_class_sampling_ratio,
+        rare_class_weight_power=args.rare_class_weight_power,
     )
     val_dataset = SceneSegDataset(
         root=data_root,
         split="val",
         num_points=args.num_points,
+        num_classes=args.num_classes,
         augment=False,
         seed=args.seed + 1,
     )
+    train_sampler = None
+    if train_dataset.file_sampling_weights is not None:
+        train_sampler = WeightedRandomSampler(
+            train_dataset.file_sampling_weights,
+            num_samples=len(train_dataset),
+            replacement=True,
+        )
     train_loader = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
-        shuffle=True,
+        shuffle=train_sampler is None,
+        sampler=train_sampler,
         num_workers=args.workers,
         drop_last=False,
     )
@@ -349,6 +524,10 @@ def main():
     print(
         f"device={args.device} | workers={args.workers} | batch_size={args.batch_size} | "
         f"input_channels={input_channels}"
+    )
+    print(
+        f"rare_class_sampling_ratio={args.rare_class_sampling_ratio:.2f} | "
+        f"rare_class_weight_power={args.rare_class_weight_power:.2f}"
     )
 
     class_weights = None

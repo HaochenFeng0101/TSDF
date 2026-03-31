@@ -62,6 +62,20 @@ def extract(zip_path, extract_dir):
     print("Extraction complete")
 
 
+def validate_archive(zip_path):
+    zip_path = Path(zip_path)
+    if not zip_path.exists() or not zip_path.is_file():
+        return False
+    if not zipfile.is_zipfile(zip_path):
+        return False
+    try:
+        with zipfile.ZipFile(zip_path, "r") as archive:
+            archive.infolist()
+    except zipfile.BadZipFile:
+        return False
+    return True
+
+
 def maybe_flatten_h5_dir(root):
     root = Path(root)
     nested = root / "h5_files"
@@ -147,6 +161,16 @@ def main():
         download(args.url, archive_path)
     else:
         print(f"Archive already exists: {archive_path}")
+        if not validate_archive(archive_path):
+            print(f"Existing archive is invalid or incomplete, redownloading: {archive_path}")
+            archive_path.unlink(missing_ok=True)
+            download(args.url, archive_path)
+
+    if not validate_archive(archive_path):
+        raise RuntimeError(
+            f"Downloaded archive is still invalid: {archive_path}. "
+            "Delete it and rerun, or try another network/source."
+        )
 
     extract(archive_path, output_dir)
     maybe_flatten_h5_dir(output_dir)

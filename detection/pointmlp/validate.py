@@ -18,7 +18,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from TSDF.dataset.scanobjectnn_data import SCANOBJECTNN_LABELS, ScanObjectNNDataset
-from TSDF.detection.pointmlp.model import PointMLPCls
+from TSDF.detection.pointmlp.pointmlp_cls import PointMLPCls
 
 
 def set_seed(seed):

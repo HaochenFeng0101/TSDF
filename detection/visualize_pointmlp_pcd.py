@@ -10,13 +10,20 @@ try:
 except Exception:
     o3d = None
 
+'''
+tsdf python detection/visualize_pointmlp_pcd.py \
+  model/pointmlp/pointmlp_best.pth \
+  3d_construction/outputs/chair.pcd
+
+
+'''
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TSDF_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from TSDF.detection.pointmlp.model import PointMLPCls
+from TSDF.detection.pointmlp.pointmlp_cls import PointMLPCls
 
 
 def set_seed(seed):

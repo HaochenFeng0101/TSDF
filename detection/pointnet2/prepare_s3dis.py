@@ -441,7 +441,7 @@ def main():
     parser.add_argument(
         "--block-size",
         type=float,
-        default=1.0,
+        default=1.5,
         help="XY block size in meters for room slicing.",
     )
     parser.add_argument(

@@ -11,3 +11,5 @@ openmvs/outputs/*
 !openmvs/outputs/.gitkeep
 openmvs/_build/
 openmvs/_install/
+model/pointmlp/*.pth
+model/pointmlp/train_metrics.json

@@ -5,11 +5,23 @@ from pathlib import Path
 
 import torch
 import torch.nn.functional as F
-from torch.cuda.amp import GradScaler, autocast
+
+try:
+    from tqdm import tqdm
+except Exception:
+    tqdm = None
 
 '''
 python detection/pointmlp/train.py
 
+
+python detection/pointmlp/train.py \
+  --scanobjectnn-root data/ScanObjectNN \
+  --scanobjectnn-variant pb_t50_rs \
+  --batch-size 8 \
+  --num-points 512 \
+  --amp \
+  --use-class-weights
 '''
 
 
@@ -33,8 +45,11 @@ def evaluate(model, dataloader, device, class_weights=None, label_smoothing=0.0)
     total_loss = 0.0
     total_correct = 0
     total_seen = 0
+    iterator = dataloader
+    if tqdm is not None:
+        iterator = tqdm(dataloader, desc="val", leave=False, dynamic_ncols=True)
     with torch.no_grad():
-        for points, labels in dataloader:
+        for points, labels in iterator:
             points = points.to(device)
             labels = labels.to(device)
             logits = model(points)
@@ -147,7 +162,8 @@ def main():
         optimizer, T_max=args.epochs, eta_min=max(args.lr * 0.01, 1e-5)
     )
     use_amp = args.amp and str(args.device).startswith("cuda")
-    scaler = GradScaler(enabled=use_amp)
+    amp_device_type = "cuda" if str(args.device).startswith("cuda") else "cpu"
+    scaler = torch.amp.GradScaler(amp_device_type, enabled=use_amp)
 
     best_acc = 0.0
     best_ckpt_path = output_dir / "pointmlp_best.pth"
@@ -160,11 +176,15 @@ def main():
         total_correct = 0
         total_seen = 0
 
-        for points, labels_batch in train_loader:
+        iterator = train_loader
+        if tqdm is not None:
+            iterator = tqdm(train_loader, desc=f"train {epoch:03d}", leave=False, dynamic_ncols=True)
+
+        for points, labels_batch in iterator:
             points = points.to(args.device)
             labels_batch = labels_batch.to(args.device)
             optimizer.zero_grad()
-            with autocast(enabled=use_amp):
+            with torch.amp.autocast(device_type=amp_device_type, enabled=use_amp):
                 logits = model(points)
                 loss = F.cross_entropy(
                     logits, labels_batch, weight=class_weights, label_smoothing=args.label_smoothing
@@ -180,6 +200,8 @@ def main():
             total_loss += loss.item() * labels_batch.size(0)
             total_correct += (preds == labels_batch).sum().item()
             total_seen += labels_batch.size(0)
+            if tqdm is not None:
+                iterator.set_postfix(loss=f"{loss.item():.4f}")
 
         train_loss = total_loss / max(total_seen, 1)
         train_acc = total_correct / max(total_seen, 1)

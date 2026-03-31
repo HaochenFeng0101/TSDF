@@ -180,8 +180,8 @@ def main():
     parser.add_argument(
         "checkpoint",
         nargs="?",
-        default=str(TSDF_ROOT / "model" / "pointmlp" / "pointmlp_best.pth"),
-        help="PointMLP 权重路径，默认 model/pointmlp/pointmlp_best.pth",
+        default=str(TSDF_ROOT / "model" / "pointmlp" / "pointmlp_best_weights.pth"),
+        help="PointMLP 权重路径，默认 model/pointmlp/pointmlp_best_weights.pth",
     )
     parser.add_argument(
         "pcd",

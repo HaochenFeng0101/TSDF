@@ -18,10 +18,11 @@ python detection/pointmlp/train.py
 python detection/pointmlp/train.py \
   --scanobjectnn-root data/ScanObjectNN \
   --scanobjectnn-variant pb_t50_rs \
-  --batch-size 8 \
-  --num-points 512 \
+  --batch-size 4 \
+  --num-points 2048 \
   --amp \
   --use-class-weights
+
 '''
 
 
@@ -82,8 +83,8 @@ def main():
     )
     parser.add_argument("--scanobjectnn-no-bg", action="store_true")
     parser.add_argument("--epochs", type=int, default=150)
-    parser.add_argument("--batch-size", type=int, default=32)
-    parser.add_argument("--num-points", type=int, default=1024)
+    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--num-points", type=int, default=2048)
     parser.add_argument("--lr", type=float, default=1e-2)
     parser.add_argument("--weight-decay", type=float, default=1e-4)
     parser.add_argument("--label-smoothing", type=float, default=0.0)
@@ -166,8 +167,8 @@ def main():
     scaler = torch.amp.GradScaler(amp_device_type, enabled=use_amp)
 
     best_acc = 0.0
-    best_ckpt_path = output_dir / "pointmlp_best.pth"
-    latest_ckpt_path = output_dir / "pointmlp_last.pth"
+    best_ckpt_path = output_dir / "pointmlp_best_weights.pth"
+    latest_ckpt_path = output_dir / "pointmlp_last_weights.pth"
     history = []
 
     for epoch in range(1, args.epochs + 1):
@@ -234,11 +235,14 @@ def main():
         ckpt = {
             "epoch": epoch,
             "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
             "labels": labels,
             "num_points": args.num_points,
             "model_type": args.model_type,
             "val_acc": val_acc,
+            "task": "classification",
+            "dataset": "ScanObjectNN",
+            "scanobjectnn_variant": args.scanobjectnn_variant,
+            "use_background": not args.scanobjectnn_no_bg,
         }
         torch.save(ckpt, latest_ckpt_path)
         if val_acc >= best_acc:

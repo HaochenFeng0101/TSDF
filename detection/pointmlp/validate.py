@@ -152,7 +152,7 @@ def main():
     )
     parser.add_argument(
         "--checkpoint",
-        default=str(TSDF_ROOT / "model" / "pointmlp" / "pointmlp_best.pth"),
+        default=str(TSDF_ROOT / "model" / "pointmlp" / "pointmlp_best_weights.pth"),
         help="Checkpoint path.",
     )
     parser.add_argument(

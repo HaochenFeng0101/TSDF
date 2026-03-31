@@ -11,7 +11,7 @@ except Exception:
     o3d = None
 
 '''
-tsdf python detection/visualize_pointmlp_pcd.py \
+python python detection/visualize_pointmlp_pcd.py \
   model/pointmlp/pointmlp_best.pth \
   3d_construction/outputs/chair.pcd
 

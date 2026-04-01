@@ -342,37 +342,6 @@ Optional:
 - `--use-all-points`
 - `--visualize-raw-points`
 
-## ScanNet Notes
-
-`ScanNet` download is not anonymous. You must first get access from:
-
-- http://www.scan-net.org/
-
-Then use the official downloader with:
-
-```bash
-python dataset/download_scannet_scene.py \
-  --scene-id scene0000_00 \
-  --official-downloader /path/to/ScanNet/download-scannet.py \
-  --reader-script /path/to/ScanNet/SensReader/python/reader.py \
-  --reader-python python2 \
-  --downloader-enter-twice
-```
-
-After export, you can:
-
-- reconstruct the scene with `3d_construction/run_scannet_tsdf.py`
-- generate masks with `mask_generation/generate_scannet_masks_maskrcnn.py`
-
-Example:
-
-```bash
-python mask_generation/generate_scannet_masks_maskrcnn.py \
-  --config configs/rgbd/scannet/scene0000_00.yaml \
-  --target-class chair \
-  --separate-instances \
-  --save-preview
-```
 
 ## Notes
 

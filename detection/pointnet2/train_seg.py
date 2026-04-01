@@ -7,22 +7,21 @@ from pathlib import Path
 import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset, get_worker_info
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler, get_worker_info
 
 
 '''
+python3 detection/pointnet2/train_seg.py
+
 python3 detection/pointnet2/train_seg.py \
-  --data-root data/S3DIS_seg \
-  --num-classes 13 \
-  --labels data/S3DIS_seg/labels.txt \
-  --num-points 4096 \
-  --batch-size 8 \
   --epochs 100 \
-  --use-color \
-  --use-room-coords \
+  --batch-size 8 \
   --use-class-weights
-
-
+  
+  conda run -n tsdf python detection/pointnet2/train_seg.py \
+  --use-class-weights \
+  --rare-class-sampling-ratio 0.35 \
+  --rare-class-weight-power 0.75
 
 '''
 
@@ -33,7 +32,7 @@ TSDF_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from TSDF.detection.pointnet2.pointnet2seg import PointNet2SemSegSSG
+from TSDF.detection.pointnet2.pointnet2seg import PointNet2SemSegSSG, SEG_INPUT_CHANNELS
 
 try:
     from tqdm import tqdm
@@ -46,12 +45,24 @@ except Exception:
     o3d = None
 
 
+DEFAULT_DATA_ROOT = Path("data") / "S3DIS_seg"
+DEFAULT_LABELS_PATH = DEFAULT_DATA_ROOT / "labels.txt"
+DEFAULT_OUTPUT_DIR = Path("seg_model") / "pointnet2"
+
+
 def set_seed(seed):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+
+
+def resolve_repo_path(path_str):
+    path = Path(path_str)
+    if not path.is_absolute():
+        path = TSDF_ROOT / path
+    return path
 
 
 def normalize_xyz(points):
@@ -66,23 +77,22 @@ def normalize_xyz(points):
     return points
 
 
-def select_input_features(points, use_color, use_room_coords):
+def select_input_features(points):
     if points.shape[1] < 3:
         raise ValueError(f"Expected at least xyz coordinates, got shape {points.shape}")
 
-    features = [points[:, :3]]
-    if use_color:
-        if points.shape[1] < 6:
-            raise ValueError(f"Color features requested, but point shape is {points.shape}")
-        colors = points[:, 3:6].astype(np.float32)
-        if colors.size > 0 and colors.max() > 1.0:
-            colors = colors / 255.0
-        features.append(np.clip(colors, 0.0, 1.0))
-    if use_room_coords:
-        if points.shape[1] < 9:
-            raise ValueError(f"Room coordinates requested, but point shape is {points.shape}")
-        features.append(points[:, 6:9])
-    return np.concatenate(features, axis=1).astype(np.float32)
+    if points.shape[1] < SEG_INPUT_CHANNELS:
+        raise ValueError(
+            f"Expected segmentation points with at least {SEG_INPUT_CHANNELS} channels "
+            f"(xyz + rgb + room_coords), got shape {points.shape}"
+        )
+
+    features = points[:, :SEG_INPUT_CHANNELS].astype(np.float32).copy()
+    colors = features[:, 3:6]
+    if colors.size > 0 and colors.max() > 1.0:
+        colors = colors / 255.0
+    features[:, 3:6] = np.clip(colors, 0.0, 1.0)
+    return features
 
 
 def load_seg_sample(path):
@@ -128,14 +138,29 @@ def load_seg_sample(path):
 
 
 class SceneSegDataset(Dataset):
-    def __init__(self, root, split, num_points=4096, use_color=True, use_room_coords=False, augment=False, seed=0):
+    def __init__(
+        self,
+        root,
+        split,
+        num_points=4096,
+        num_classes=13,
+        augment=False,
+        seed=0,
+        rare_class_sampling_ratio=0.25,
+        rare_class_weight_power=0.5,
+    ):
         self.root = Path(root)
         self.split = split
         self.num_points = num_points
-        self.use_color = use_color
-        self.use_room_coords = use_room_coords
+        self.num_classes = num_classes
         self.augment = augment
         self.seed = int(seed)
+        self.rare_class_sampling_ratio = float(rare_class_sampling_ratio) if augment else 0.0
+        self.rare_class_weight_power = float(rare_class_weight_power)
+        self.global_label_counts = None
+        self.class_sampling_weights = None
+        self.file_sampling_weights = None
+        self.sampling_cache_path = None
 
         split_dir = self.root / split
         if not split_dir.exists():
@@ -146,6 +171,12 @@ class SceneSegDataset(Dataset):
         )
         if not self.files:
             raise RuntimeError(f"No usable samples found under {split_dir}.")
+        self.sampling_cache_path = (
+            self.root
+            / f".sampling_stats_{self.split}_c{self.num_classes}_rw{self.rare_class_weight_power:.3f}.npz"
+        )
+        if self.augment:
+            self._build_sampling_statistics()
 
     def __len__(self):
         return len(self.files)
@@ -157,17 +188,135 @@ class SceneSegDataset(Dataset):
             return np.random.default_rng(worker_seed + idx)
         return np.random.default_rng(self.seed + idx)
 
+    def _build_sampling_statistics(self):
+        cached = self._load_sampling_statistics_cache()
+        if cached is not None:
+            print(f"Using cached sampling stats: {self.sampling_cache_path}")
+            file_histograms, global_counts = cached
+        else:
+            print(
+                f"Building sampling stats for {self.split} split over {len(self.files)} files. "
+                f"This can take a while the first time."
+            )
+            file_histograms = []
+            global_counts = np.zeros(self.num_classes, dtype=np.float64)
+            iterator = self.files
+            if tqdm is not None:
+                iterator = tqdm(
+                    self.files,
+                    desc=f"sampling_stats_{self.split}",
+                    leave=False,
+                    dynamic_ncols=True,
+                )
+            for path in iterator:
+                _, labels = load_seg_sample(path)
+                hist = np.bincount(labels.astype(np.int64), minlength=self.num_classes).astype(np.float64)
+                file_histograms.append(hist)
+                global_counts += hist
+            file_histograms = np.asarray(file_histograms, dtype=np.float64)
+            self._save_sampling_statistics_cache(file_histograms, global_counts)
+            if self.sampling_cache_path is not None:
+                print(f"Saved sampling stats cache: {self.sampling_cache_path}")
+
+        safe_counts = global_counts.copy()
+        safe_counts[safe_counts == 0] = 1.0
+        class_weights = np.power(safe_counts.sum() / safe_counts, self.rare_class_weight_power)
+        class_weights = class_weights / np.maximum(class_weights.mean(), 1e-6)
+
+        file_scores = []
+        for hist in file_histograms:
+            total = np.maximum(hist.sum(), 1.0)
+            file_scores.append(float(np.dot(hist, class_weights) / total))
+        file_scores = np.asarray(file_scores, dtype=np.float64)
+        file_scores = file_scores / np.maximum(file_scores.mean(), 1e-6)
+
+        self.global_label_counts = global_counts
+        self.class_sampling_weights = class_weights.astype(np.float32)
+        self.file_sampling_weights = torch.as_tensor(file_scores, dtype=torch.double)
+
+    def _load_sampling_statistics_cache(self):
+        if self.sampling_cache_path is None or not self.sampling_cache_path.exists():
+            return None
+        try:
+            cache = np.load(self.sampling_cache_path, allow_pickle=False)
+            cached_paths = cache["paths"]
+            file_histograms = cache["file_histograms"].astype(np.float64)
+            global_counts = cache["global_counts"].astype(np.float64)
+        except Exception:
+            return None
+
+        current_paths = np.asarray([str(path.resolve()) for path in self.files])
+        if len(cached_paths) != len(current_paths):
+            return None
+        if not np.array_equal(cached_paths, current_paths):
+            return None
+        if file_histograms.shape != (len(self.files), self.num_classes):
+            return None
+        return file_histograms, global_counts
+
+    def _save_sampling_statistics_cache(self, file_histograms, global_counts):
+        if self.sampling_cache_path is None:
+            return
+        try:
+            np.savez_compressed(
+                self.sampling_cache_path,
+                paths=np.asarray([str(path.resolve()) for path in self.files]),
+                file_histograms=np.asarray(file_histograms, dtype=np.float32),
+                global_counts=np.asarray(global_counts, dtype=np.float64),
+            )
+        except Exception:
+            return
+
+    def _sample_point_indices(self, labels, rng):
+        total_points = len(labels)
+        if total_points >= self.num_points:
+            uniform_choice = rng.choice(total_points, self.num_points, replace=False)
+        else:
+            uniform_choice = rng.choice(total_points, self.num_points, replace=True)
+
+        if (
+            not self.augment
+            or self.rare_class_sampling_ratio <= 0.0
+            or self.class_sampling_weights is None
+            or self.num_points <= 1
+        ):
+            return uniform_choice.astype(np.int64)
+
+        rare_sample_count = int(round(self.num_points * self.rare_class_sampling_ratio))
+        rare_sample_count = max(0, min(self.num_points, rare_sample_count))
+        if rare_sample_count == 0:
+            return uniform_choice.astype(np.int64)
+
+        point_weights = self.class_sampling_weights[labels]
+        point_weight_sum = float(point_weights.sum())
+        if point_weight_sum <= 0:
+            return uniform_choice.astype(np.int64)
+        point_weights = point_weights / point_weight_sum
+
+        base_count = self.num_points - rare_sample_count
+        if base_count > 0:
+            base_choice = uniform_choice[:base_count]
+        else:
+            base_choice = np.empty((0,), dtype=np.int64)
+
+        rare_choice = rng.choice(
+            total_points,
+            rare_sample_count,
+            replace=total_points < rare_sample_count,
+            p=point_weights,
+        ).astype(np.int64)
+        choice = np.concatenate([base_choice, rare_choice], axis=0)
+        rng.shuffle(choice)
+        return choice
+
     def __getitem__(self, idx):
         rng = self._make_rng(idx)
         points, labels = load_seg_sample(self.files[idx])
-        points = select_input_features(points, self.use_color, self.use_room_coords)
+        points = select_input_features(points)
 
         points = normalize_xyz(points)
 
-        if len(points) >= self.num_points:
-            choice = rng.choice(len(points), self.num_points, replace=False)
-        else:
-            choice = rng.choice(len(points), self.num_points, replace=True)
+        choice = self._sample_point_indices(labels, rng)
 
         points = points[choice]
         labels = labels[choice]
@@ -196,15 +345,28 @@ def load_labels(labels_path, num_classes):
 
 
 def compute_class_weights(dataset, num_classes, sample_cap=200):
-    counts = np.zeros(num_classes, dtype=np.float64)
-    limit = min(len(dataset), sample_cap)
-    for idx in range(limit):
-        _, labels = dataset[idx]
-        counts += np.bincount(labels.numpy(), minlength=num_classes)
+    counts = getattr(dataset, "global_label_counts", None)
+    if counts is None:
+        counts = np.zeros(num_classes, dtype=np.float64)
+        limit = min(len(dataset), sample_cap)
+        for idx in range(limit):
+            _, labels = dataset[idx]
+            counts += np.bincount(labels.numpy(), minlength=num_classes)
+    else:
+        counts = counts.astype(np.float64).copy()
     counts[counts == 0] = 1.0
     weights = counts.sum() / (len(counts) * counts)
     weights = weights / weights.mean()
     return torch.from_numpy(weights.astype(np.float32))
+
+
+def format_per_class_iou(label_names, per_class_iou):
+    parts = []
+    for class_idx, label_name in enumerate(label_names):
+        iou = per_class_iou[class_idx]
+        value = "n/a" if iou is None else f"{iou:.3f}"
+        parts.append(f"{label_name}={value}")
+    return " | ".join(parts)
 
 
 def evaluate(model, dataloader, device, num_classes, ignore_index=-100, class_weights=None):
@@ -248,7 +410,16 @@ def evaluate(model, dataloader, device, num_classes, ignore_index=-100, class_we
 
     iou = total_iou_inter / np.maximum(total_iou_union, 1.0)
     miou = float(iou.mean())
-    return total_loss / max(total_seen, 1), total_correct / max(total_seen, 1), miou
+    per_class_iou = [
+        (float(iou[class_idx]) if total_iou_union[class_idx] > 0 else None)
+        for class_idx in range(num_classes)
+    ]
+    return (
+        total_loss / max(total_seen, 1),
+        total_correct / max(total_seen, 1),
+        miou,
+        per_class_iou,
+    )
 
 
 def main():
@@ -257,15 +428,15 @@ def main():
     )
     parser.add_argument(
         "--data-root",
-        required=True,
-        help="Dataset root. Expected train/ and val/ subdirectories containing .npz/.npy/.pcd/.ply samples.",
+        default=str(DEFAULT_DATA_ROOT),
+        help="Dataset root. Defaults to data/S3DIS_seg under the repository root.",
     )
     parser.add_argument(
         "--labels",
-        default=None,
-        help="Optional label file, one class name per line.",
+        default=str(DEFAULT_LABELS_PATH),
+        help="Label file, one class name per line. Defaults to data/S3DIS_seg/labels.txt.",
     )
-    parser.add_argument("--num-classes", type=int, required=True)
+    parser.add_argument("--num-classes", type=int, default=13)
     parser.add_argument("--num-points", type=int, default=4096)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--epochs", type=int, default=100)
@@ -275,43 +446,63 @@ def main():
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--ignore-index", type=int, default=-100)
-    parser.add_argument("--use-color", action="store_true")
-    parser.add_argument("--use-room-coords", action="store_true")
     parser.add_argument("--use-class-weights", action="store_true")
     parser.add_argument(
+        "--rare-class-sampling-ratio",
+        type=float,
+        default=0.25,
+        help="Fraction of sampled training points to draw with rare-class-aware weighting.",
+    )
+    parser.add_argument(
+        "--rare-class-weight-power",
+        type=float,
+        default=0.5,
+        help="Exponent applied to inverse class frequency for rare-class-aware sampling.",
+    )
+    parser.add_argument(
         "--output-dir",
-        default=str(TSDF_ROOT / "seg_model" / "pointnet2"),
-        help="Model output directory.",
+        default=str(DEFAULT_OUTPUT_DIR),
+        help="Model output directory. Defaults to seg_model/pointnet2 under the repository root.",
     )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = parser.parse_args()
 
     set_seed(args.seed)
-    output_dir = Path(args.output_dir)
+    data_root = resolve_repo_path(args.data_root)
+    labels_path = resolve_repo_path(args.labels) if args.labels is not None else None
+    output_dir = resolve_repo_path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     train_dataset = SceneSegDataset(
-        root=args.data_root,
+        root=data_root,
         split="train",
         num_points=args.num_points,
-        use_color=args.use_color,
-        use_room_coords=args.use_room_coords,
+        num_classes=args.num_classes,
         augment=True,
         seed=args.seed,
+        rare_class_sampling_ratio=args.rare_class_sampling_ratio,
+        rare_class_weight_power=args.rare_class_weight_power,
     )
     val_dataset = SceneSegDataset(
-        root=args.data_root,
+        root=data_root,
         split="val",
         num_points=args.num_points,
-        use_color=args.use_color,
-        use_room_coords=args.use_room_coords,
+        num_classes=args.num_classes,
         augment=False,
         seed=args.seed + 1,
     )
+    train_sampler = None
+    if train_dataset.file_sampling_weights is not None:
+        train_sampler = WeightedRandomSampler(
+            train_dataset.file_sampling_weights,
+            num_samples=len(train_dataset),
+            replacement=True,
+        )
     train_loader = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
-        shuffle=True,
+        shuffle=train_sampler is None,
+        sampler=train_sampler,
         num_workers=args.workers,
         drop_last=False,
     )
@@ -323,24 +514,27 @@ def main():
         drop_last=False,
     )
 
-    input_channels = 3 + (3 if args.use_color else 0) + (3 if args.use_room_coords else 0)
-    labels = load_labels(args.labels, args.num_classes)
+    input_channels = SEG_INPUT_CHANNELS
+    labels = load_labels(labels_path, args.num_classes)
     with open(output_dir / "labels.txt", "w", encoding="utf-8") as handle:
         for label in labels:
             handle.write(f"{label}\n")
 
     print(f"train_samples={len(train_dataset)} | val_samples={len(val_dataset)} | num_classes={args.num_classes}")
-    print(f"device={args.device} | workers={args.workers} | batch_size={args.batch_size} | input_channels={input_channels}")
+    print(
+        f"device={args.device} | workers={args.workers} | batch_size={args.batch_size} | "
+        f"input_channels={input_channels}"
+    )
+    print(
+        f"rare_class_sampling_ratio={args.rare_class_sampling_ratio:.2f} | "
+        f"rare_class_weight_power={args.rare_class_weight_power:.2f}"
+    )
 
     class_weights = None
     if args.use_class_weights:
         class_weights = compute_class_weights(train_dataset, args.num_classes).to(args.device)
 
-    model = PointNet2SemSegSSG(
-        num_classes=args.num_classes,
-        input_channels=input_channels,
-        dropout=args.dropout,
-    ).to(args.device)
+    model = PointNet2SemSegSSG(num_classes=args.num_classes, dropout=args.dropout).to(args.device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimizer, T_max=args.epochs, eta_min=max(args.lr * 0.01, 1e-5)
@@ -384,7 +578,7 @@ def main():
 
         train_loss = total_loss / max(total_seen, 1)
         train_acc = total_correct / max(total_seen, 1)
-        val_loss, val_acc, val_miou = evaluate(
+        val_loss, val_acc, val_miou, val_per_class_iou = evaluate(
             model,
             val_loader,
             args.device,
@@ -402,6 +596,10 @@ def main():
                 "val_loss": val_loss,
                 "val_acc": val_acc,
                 "val_miou": val_miou,
+                "val_per_class_iou": {
+                    label_name: val_per_class_iou[class_idx]
+                    for class_idx, label_name in enumerate(labels)
+                },
             }
         )
 
@@ -409,6 +607,7 @@ def main():
             f"epoch {epoch:03d} | train_loss {train_loss:.4f} | train_acc {train_acc:.4f} | "
             f"val_loss {val_loss:.4f} | val_acc {val_acc:.4f} | val_mIoU {val_miou:.4f}"
         )
+        print(f"val_per_class_iou | {format_per_class_iou(labels, val_per_class_iou)}")
 
         checkpoint = {
             "epoch": epoch,

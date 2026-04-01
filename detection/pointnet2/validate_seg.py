@@ -11,11 +11,7 @@ import torch
 '''
 python3 detection/pointnet2/validate_seg.py \
   --pcd 3d_construction/outputs/Area_1_office_20.pcd \
-  --checkpoint /home/haochen/code/TSDF/model/pointnet2_seg/pointnet2_seg_best.pth \
-  --labels /home/haochen/code/TSDF/model/pointnet2_seg/labels.txt \
   --visualize
-
-
 
 '''
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -23,7 +19,19 @@ TSDF_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from TSDF.detection.pointnet2.pointnet2seg import PointNet2SemSegSSG
+from TSDF.detection.pointnet2.pointnet2seg import PointNet2SemSegSSG, SEG_INPUT_CHANNELS
+
+
+DEFAULT_CHECKPOINT = Path("seg_model") / "pointnet2" / "pointnet2_seg_best.pth"
+DEFAULT_LABELS_PATH = Path("seg_model") / "pointnet2" / "labels.txt"
+DEFAULT_OUTPUT_DIR = Path("seg_model") / "pointnet2" / "inference_outputs"
+
+
+def resolve_repo_path(path_str):
+    path = Path(path_str)
+    if not path.is_absolute():
+        path = TSDF_ROOT / path
+    return path
 
 
 def load_labels(path, num_classes):
@@ -64,6 +72,14 @@ def read_checkpoint_metadata(checkpoint_path, device="cpu"):
     except TypeError:
         checkpoint = torch.load(checkpoint_path, map_location=device)
     return checkpoint
+
+
+def ensure_checkpoint_compatible(checkpoint):
+    input_channels = int(checkpoint.get("input_channels", SEG_INPUT_CHANNELS))
+    if input_channels != SEG_INPUT_CHANNELS:
+        raise RuntimeError(
+            f"Expected a {SEG_INPUT_CHANNELS}-channel segmentation checkpoint, got input_channels={input_channels}."
+        )
 
 
 def load_scene(path):
@@ -136,19 +152,14 @@ def compute_room_normalized_xyz(points):
     return (points - mins) / span
 
 
-def build_chunk_features(points, colors, room_norm_xyz, indices, use_color, use_room_coords):
+def build_chunk_features(points, colors, room_norm_xyz, indices):
     chunk_points = points[indices]
     chunk_colors = colors[indices]
-    features = [chunk_points]
-    if use_color:
-        features.append(chunk_colors)
-    if use_room_coords:
-        features.append(room_norm_xyz[indices])
-    features = np.concatenate(features, axis=1)
+    features = np.concatenate([chunk_points, chunk_colors, room_norm_xyz[indices]], axis=1)
     return normalize_xyz(features)
 
 
-def predict_scene(model, points, colors, device, num_points, min_votes, max_chunks, use_color, use_room_coords):
+def predict_scene(model, points, colors, device, num_points, min_votes, max_chunks):
     chunks = choose_chunk_indices(points, num_points, min_votes, max_chunks)
     if not chunks:
         raise ValueError("No chunks were generated for scene inference.")
@@ -160,7 +171,7 @@ def predict_scene(model, points, colors, device, num_points, min_votes, max_chun
     model.eval()
     with torch.no_grad():
         for chunk_ids in chunks:
-            features = build_chunk_features(points, colors, room_norm_xyz, chunk_ids, use_color, use_room_coords)
+            features = build_chunk_features(points, colors, room_norm_xyz, chunk_ids)
             tensor = torch.from_numpy(features.T).unsqueeze(0).to(device)
             scores = model(tensor).squeeze(0).transpose(0, 1).cpu().numpy()
             if logits_sum is None:
@@ -226,18 +237,18 @@ def main():
     parser.add_argument("--pcd", required=True, help="Scene point cloud path (.pcd, .ply, ...).")
     parser.add_argument(
         "--checkpoint",
-        default=str(TSDF_ROOT / "seg_model" / "pointnet2" / "pointnet2_seg_best.pth"),
-        help="PointNet++ segmentation checkpoint path.",
+        default=str(DEFAULT_CHECKPOINT),
+        help="PointNet++ segmentation checkpoint path. Defaults to seg_model/pointnet2/pointnet2_seg_best.pth.",
     )
     parser.add_argument(
         "--labels",
-        default=str(TSDF_ROOT / "seg_model" / "pointnet2" / "labels.txt"),
-        help="Label file used to name predicted classes.",
+        default=str(DEFAULT_LABELS_PATH),
+        help="Label file used to name predicted classes. Defaults to seg_model/pointnet2/labels.txt.",
     )
     parser.add_argument(
         "--output-dir",
-        default=str(TSDF_ROOT / "seg_model" / "pointnet2" / "inference_outputs"),
-        help="Directory to write segmentation outputs.",
+        default=str(DEFAULT_OUTPUT_DIR),
+        help="Directory to write segmentation outputs. Defaults to seg_model/pointnet2/inference_outputs.",
     )
     parser.add_argument("--target-class", default=None, help="Optional semantic class name to extract.")
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
@@ -250,19 +261,18 @@ def main():
     parser.add_argument("--visualize", action="store_true", help="Visualize the segmented scene with Open3D.")
     args = parser.parse_args()
 
-    ckpt = read_checkpoint_metadata(args.checkpoint, device="cpu")
-    num_classes = args.num_classes or ckpt.get("num_classes", 13)
-    input_channels = ckpt.get("input_channels", 3)
-    num_points = args.num_points or ckpt.get("num_points", 4096)
-    use_color = input_channels > 3
-    use_room_coords = input_channels > 6
+    checkpoint_path = resolve_repo_path(args.checkpoint)
+    labels_path = resolve_repo_path(args.labels)
+    output_dir = resolve_repo_path(args.output_dir)
 
-    model = PointNet2SemSegSSG(
-        num_classes=num_classes,
-        input_channels=input_channels,
-    ).to(args.device)
-    load_checkpoint(model, args.checkpoint, args.device)
-    labels = load_labels(args.labels, num_classes)
+    ckpt = read_checkpoint_metadata(checkpoint_path, device="cpu")
+    num_classes = args.num_classes or ckpt.get("num_classes", 13)
+    ensure_checkpoint_compatible(ckpt)
+    num_points = args.num_points or ckpt.get("num_points", 4096)
+
+    model = PointNet2SemSegSSG(num_classes=num_classes).to(args.device)
+    load_checkpoint(model, checkpoint_path, args.device)
+    labels = load_labels(labels_path, num_classes)
 
     scene, _, _ = load_scene(args.pcd)
     scene, points, colors = preprocess_scene(scene, args.voxel_size, args.max_points)
@@ -274,11 +284,8 @@ def main():
         num_points=num_points,
         min_votes=args.min_votes,
         max_chunks=args.max_chunks,
-        use_color=use_color,
-        use_room_coords=use_room_coords,
     )
 
-    output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     segmented_path = output_dir / "scene_segmented.ply"
     pred_path = output_dir / "scene_predictions.npy"
@@ -288,10 +295,11 @@ def main():
 
     metadata = {
         "pcd": str(Path(args.pcd).resolve()),
-        "checkpoint": str(Path(args.checkpoint).resolve()),
+        "checkpoint": str(checkpoint_path.resolve()),
         "num_points_used": int(len(points)),
         "num_chunks": int(num_chunks),
         "num_classes": int(num_classes),
+        "input_channels": SEG_INPUT_CHANNELS,
         "labels": labels,
         "segmented_scene": str(segmented_path),
         "predictions": str(pred_path),

@@ -16,12 +16,9 @@ python detection/pointmlp/train.py
 
 
 python detection/pointmlp/train.py \
-  --scanobjectnn-root data/ScanObjectNN \
-  --scanobjectnn-variant pb_t50_rs \
-  --batch-size 4 \
-  --num-points 2048 \
-  --amp \
-  --use-class-weights
+  --use-wandb \
+  --wandb-project TSDF-PointMLP \
+  --wandb-run-name scanobjectnn_pointmlp_run1
 
 '''
 
@@ -33,6 +30,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from TSDF.dataset.scanobjectnn_data import SCANOBJECTNN_LABELS, get_scanobjectnn_dataloaders
 from TSDF.detection.pointmlp.pointmlp_cls import PointMLPCls
+from TSDF.detection.training_plots import plot_classification_history
 from TSDF.detection.train_pointnet_cls import compute_class_weights, set_seed
 
 try:
@@ -252,17 +250,28 @@ def main():
     metrics_path = output_dir / "train_metrics.json"
     with open(metrics_path, "w", encoding="utf-8") as handle:
         json.dump(history, handle, indent=2)
+    plot_paths = plot_classification_history(output_dir, history, "PointMLP Classification")
 
     if args.use_wandb:
         wandb.summary["best_checkpoint"] = str(best_ckpt_path)
         wandb.summary["labels_path"] = str(labels_path)
         wandb.summary["metrics_path"] = str(metrics_path)
         wandb.summary["best_val_acc"] = best_acc
+        wandb.summary["plot_paths"] = [str(path) for path in plot_paths]
+        image_logs = {
+            f"plot/{Path(path).stem}": wandb.Image(str(path))
+            for path in plot_paths
+            if Path(path).suffix.lower() == ".png"
+        }
+        if image_logs:
+            wandb.log(image_logs)
         wandb.finish()
 
     print(f"best checkpoint: {best_ckpt_path}")
     print(f"labels file: {labels_path}")
     print(f"metrics: {metrics_path}")
+    for plot_path in plot_paths:
+        print(f"plot: {plot_path}")
 
 
 if __name__ == "__main__":

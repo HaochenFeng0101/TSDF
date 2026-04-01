@@ -27,6 +27,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from TSDF.dataset.scanobjectnn_data import SCANOBJECTNN_LABELS, get_scanobjectnn_dataloaders
 from TSDF.detection.pointnet2.pointnet2 import PointNet2ClsSSG
+from TSDF.detection.training_plots import plot_classification_history
 
 try:
     import h5py
@@ -626,15 +627,32 @@ def main():
                 }
             )
 
-    with open(output_dir / "train_metrics.json", "w", encoding="utf-8") as handle:
+    metrics_path = output_dir / "train_metrics.json"
+    with open(metrics_path, "w", encoding="utf-8") as handle:
         json.dump(history, handle, indent=2)
+    plot_paths = plot_classification_history(output_dir, history, "PointNet2 Classification")
 
     print(f"Training finished. Best val_acc={best_acc:.4f}")
     print(f"Best checkpoint: {best_ckpt_path}")
     print(f"Last checkpoint: {latest_ckpt_path}")
     print(f"Labels file: {labels_path}")
+    print(f"Metrics file: {metrics_path}")
+    for plot_path in plot_paths:
+        print(f"plot: {plot_path}")
 
     if args.use_wandb:
+        wandb.summary["best_checkpoint"] = str(best_ckpt_path)
+        wandb.summary["labels_path"] = str(labels_path)
+        wandb.summary["best_val_acc"] = best_acc
+        wandb.summary["metrics_path"] = str(metrics_path)
+        wandb.summary["plot_paths"] = [str(path) for path in plot_paths]
+        image_logs = {
+            f"plot/{Path(path).stem}": wandb.Image(str(path))
+            for path in plot_paths
+            if Path(path).suffix.lower() == ".png"
+        }
+        if image_logs:
+            wandb.log(image_logs)
         wandb.finish()
 
 

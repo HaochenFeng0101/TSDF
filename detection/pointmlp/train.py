@@ -5,6 +5,7 @@ from pathlib import Path
 
 import torch
 import torch.nn.functional as F
+from torch.utils.data import ConcatDataset, Dataset
 
 try:
     from tqdm import tqdm
@@ -33,7 +34,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from TSDF.dataset.scanobjectnn_data import SCANOBJECTNN_LABELS, get_scanobjectnn_dataloaders
 from TSDF.detection.pointmlp.pointmlp_cls import PointMLPCls
-from TSDF.detection.train_pointnet_cls import compute_class_weights, set_seed
+from TSDF.detection.train_pointnet_cls import load_point_cloud_file, set_seed
 
 try:
     import wandb
@@ -67,6 +68,70 @@ def evaluate(model, dataloader, device, class_weights=None, label_smoothing=0.0)
     return total_loss / max(total_seen, 1), total_correct / max(total_seen, 1)
 
 
+class ExtraPointCloudDataset(Dataset):
+    def __init__(self, point_cloud_path, label_idx, num_points, repeat=1, augment=True, seed=0):
+        self.point_cloud_path = str(Path(point_cloud_path).expanduser().resolve())
+        self.label_idx = int(label_idx)
+        self.num_points = num_points
+        self.repeat = max(int(repeat), 1)
+        self.augment = augment
+        self.seed = seed
+
+        from TSDF.dataset.scanobjectnn_data import maybe_augment, normalize_points
+
+        self._maybe_augment = maybe_augment
+        self._normalize_points = normalize_points
+        self.points = load_point_cloud_file(self.point_cloud_path)
+
+    def __len__(self):
+        return self.repeat
+
+    def __getitem__(self, idx):
+        import numpy as np
+
+        rng = np.random.default_rng(self.seed + idx)
+        points = self.points.copy()
+        points = self._normalize_points(points)
+        if len(points) >= self.num_points:
+            choice = rng.choice(len(points), self.num_points, replace=False)
+        else:
+            choice = rng.choice(len(points), self.num_points, replace=True)
+        points = points[choice]
+        if self.augment:
+            points = self._maybe_augment(points, rng)
+        return torch.from_numpy(points.T.astype("float32")), self.label_idx
+
+
+def collect_label_indices(dataset):
+    if isinstance(dataset, ConcatDataset):
+        indices = []
+        for subdataset in dataset.datasets:
+            indices.extend(collect_label_indices(subdataset))
+        return indices
+
+    if hasattr(dataset, "labels"):
+        labels = getattr(dataset, "labels")
+        if len(labels) > 0:
+            first = labels[0]
+            if isinstance(first, (int,)):
+                return [int(x) for x in labels]
+            if hasattr(first, "item"):
+                return [int(x) for x in labels]
+
+    if isinstance(dataset, ExtraPointCloudDataset):
+        return [dataset.label_idx] * len(dataset)
+
+    raise ValueError(f"Cannot infer label indices from dataset type: {type(dataset).__name__}")
+
+
+def compute_class_weights_for_dataset(dataset, num_classes, device):
+    counts = torch.bincount(torch.tensor(collect_label_indices(dataset), dtype=torch.long), minlength=num_classes).float()
+    counts[counts == 0] = 1.0
+    weights = counts.sum() / (len(counts) * counts)
+    weights = weights / weights.mean()
+    return weights.to(device)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Train a PointMLP classifier on ScanObjectNN."
@@ -92,6 +157,22 @@ def main():
     parser.add_argument("--optimizer", choices=["sgd", "adamw"], default="sgd")
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--use-class-weights", action="store_true")
+    parser.add_argument(
+        "--extra-train-sample",
+        default=str(TSDF_ROOT / "3d_construction" / "outputs" / "fr3_office_main_chair_yolo.pcd"),
+        help="Optional point cloud file to inject into the training set only.",
+    )
+    parser.add_argument(
+        "--extra-train-label",
+        default="chair",
+        help="Label name for --extra-train-sample.",
+    )
+    parser.add_argument(
+        "--extra-train-repeat",
+        type=int,
+        default=64,
+        help="How many times to repeat the injected point cloud in the training set.",
+    )
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--seed", type=int, default=0)
@@ -126,6 +207,34 @@ def main():
         seed=args.seed,
     )
 
+    if args.extra_train_sample:
+        if args.extra_train_label not in labels:
+            raise ValueError(
+                f"Unknown extra train label '{args.extra_train_label}'. Available labels: {labels}"
+            )
+        extra_dataset = ExtraPointCloudDataset(
+            point_cloud_path=args.extra_train_sample,
+            label_idx=labels.index(args.extra_train_label),
+            num_points=args.num_points,
+            repeat=args.extra_train_repeat,
+            augment=True,
+            seed=args.seed + 1000,
+        )
+        train_dataset = ConcatDataset([train_dataset, extra_dataset])
+        train_loader = torch.utils.data.DataLoader(
+            train_dataset,
+            batch_size=args.batch_size,
+            shuffle=True,
+            num_workers=args.workers,
+            drop_last=False,
+        )
+        print(
+            "extra training sample injected: "
+            f"path={Path(args.extra_train_sample).resolve()} "
+            f"label={args.extra_train_label} "
+            f"repeat={args.extra_train_repeat}"
+        )
+
     print(
         f"dataset=ScanObjectNN | variant={args.scanobjectnn_variant} | "
         f"use_background={not args.scanobjectnn_no_bg}"
@@ -147,7 +256,7 @@ def main():
 
     class_weights = None
     if args.use_class_weights:
-        class_weights = compute_class_weights(train_dataset, len(labels)).to(args.device)
+        class_weights = compute_class_weights_for_dataset(train_dataset, len(labels), args.device)
 
     model = PointMLPCls(k=len(labels), num_points=args.num_points, model_type=args.model_type).to(args.device)
     if args.optimizer == "sgd":

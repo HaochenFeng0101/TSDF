@@ -28,7 +28,6 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from TSDF.detection.pointnet2.pointnet2seg import PointNet2SemSegSSG, SEG_INPUT_CHANNELS
-from TSDF.detection.training_plots import plot_segmentation_history
 
 try:
     from tqdm import tqdm

@@ -24,9 +24,7 @@ model/**/iou_curves.pdf
 model/pointmlp/*.pth
 model/pointmlp/train_metrics.json
 
-*
-!.gitignore
-!extra_object/
-!extra_object/**
+
+
  
 /yolov8x-seg.pt

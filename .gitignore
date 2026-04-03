@@ -24,6 +24,9 @@ model/**/iou_curves.pdf
 model/pointmlp/*.pth
 model/pointmlp/train_metrics.json
 
-
+*
+!.gitignore
+!extra_object/
+!extra_object/**
  
-/home/haochen/code/TSDF/yolov8x-seg.pt
+/yolov8x-seg.pt

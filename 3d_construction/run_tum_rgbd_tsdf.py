@@ -10,6 +10,14 @@ import trimesh
 import yaml
 from PIL import Image
 
+'''
+
+python3 3d_construction/run_tum_rgbd_tsdf.py \
+  --config configs/rgbd/tum/fr1_desk.yaml
+  
+  python3 3d_construction/run_tum_rgbd_tsdf.py \
+  --config configs/rgbd/tum/fr2_xyz.yaml
+'''
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TSDF_ROOT = Path(__file__).resolve().parents[1]

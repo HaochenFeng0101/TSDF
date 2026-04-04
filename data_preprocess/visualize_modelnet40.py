@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Visualize ModelNet40 samples from OFF or h5 files."""
+"""Visualize ModelNet40 samples from OFF, point files, or h5 files."""
 
 from __future__ import annotations
 
@@ -142,6 +142,25 @@ def sample_points_from_mesh(
     return sampled.astype(np.float32)
 
 
+def load_point_cloud_file(path: Path) -> np.ndarray:
+    suffix = path.suffix.lower()
+    if suffix == ".npy":
+        points = np.load(path)
+    elif suffix == ".npz":
+        data = np.load(path)
+        key = "points" if "points" in data else list(data.keys())[0]
+        points = data[key]
+    elif suffix in {".txt", ".pts", ".xyz"}:
+        points = np.loadtxt(path)
+    else:
+        raise ValueError(f"Unsupported point file format: {path}")
+
+    points = np.asarray(points, dtype=np.float32)
+    if points.ndim != 2 or points.shape[1] < 3:
+        raise ValueError(f"Expected Nx3+ points in {path}, got shape {points.shape}")
+    return points[:, :3]
+
+
 def read_text_lines(path: Path) -> list[str]:
     with open(path, "r", encoding="utf-8") as handle:
         return [line.strip() for line in handle if line.strip()]
@@ -263,7 +282,8 @@ def load_visual_source(
     args: argparse.Namespace,
     fallback_sample_path: str | None = None,
 ) -> dict[str, object]:
-    if path.suffix.lower() == ".off":
+    suffix = path.suffix.lower()
+    if suffix == ".off":
         rng = np.random.default_rng(args.seed)
         vertices, faces = load_off_mesh(path)
         points = sample_points_from_mesh(
@@ -283,8 +303,20 @@ def load_visual_source(
             "num_samples": 1,
         }
 
-    if path.suffix.lower() != ".h5":
-        raise ValueError(f"Unsupported input type: {path}. Expected .off or .h5")
+    if suffix in {".npy", ".npz", ".txt", ".pts", ".xyz"}:
+        points = load_point_cloud_file(path)
+        return {
+            "kind": "points",
+            "points": points,
+            "label_idx": None,
+            "label_name": infer_off_label_name(path),
+            "sample_path": str(path),
+            "resolved_index": None,
+            "num_samples": 1,
+        }
+
+    if suffix != ".h5":
+        raise ValueError(f"Unsupported input type: {path}. Expected .off, point file, or .h5")
 
     return resolve_h5_sample(
         h5_path=path,
@@ -370,9 +402,9 @@ def describe_source(prefix: str, info: dict[str, object]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Visualize one or two ModelNet40 samples from OFF or h5 files.")
-    parser.add_argument("--input", required=True, help="Primary .off or .h5 path.")
-    parser.add_argument("--compare", default=None, help="Optional second .off or .h5 path.")
+    parser = argparse.ArgumentParser(description="Visualize one or two ModelNet40 samples from OFF, point files, or h5 files.")
+    parser.add_argument("--input", required=True, help="Primary .off, point file, or .h5 path.")
+    parser.add_argument("--compare", default=None, help="Optional second .off, point file, or .h5 path.")
     parser.add_argument("--index", type=int, default=0, help="Sample index when reading h5.")
     parser.add_argument("--class-name", default=None, help="Optional class name when reading h5.")
     parser.add_argument(

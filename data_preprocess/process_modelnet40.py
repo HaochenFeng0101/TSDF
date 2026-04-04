@@ -1,24 +1,27 @@
 #!/usr/bin/env python3
-"""Apply mild point corruption to ModelNet40 and export h5 splits.
+"""Apply mild point corruption to ModelNet40 and export processed splits.
 
 The script accepts either:
 - the original OFF-mesh directory layout
 - an existing ModelNet40 h5 directory such as modelnet40_ply_hdf5_2048
 
-Output is always written in ModelNet40-style h5 format with:
-- data: float32 [N, P, 3]
-- label: int64 [N, 1]
-- shape_names.txt
-- train_files.txt / test_files.txt
+By default, output is written in a ModelNet40-style class/split directory layout:
+- <output>/<class>/train/*.npy
+- <output>/<class>/test/*.npy
 
-Extra metadata datasets are also written when available:
-- sample_path
-- label_name
+Metadata files are also written:
+- shape_names.txt
+- modelnet40_shape_names.txt
+- labels.txt
+- modelnet40_train.txt / modelnet40_test.txt
+
+Optional legacy h5 export is still supported for backward compatibility.
 """
 
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 
 import numpy as np
@@ -27,6 +30,9 @@ try:
     import h5py
 except Exception as exc:  # pragma: no cover
     raise RuntimeError("h5py is required to process ModelNet40 h5 files.") from exc
+
+
+POINT_EXTENSIONS = (".off", ".npy", ".npz", ".txt", ".pts", ".xyz")
 
 
 def normalize_points(points: np.ndarray) -> np.ndarray:
@@ -223,6 +229,25 @@ def sample_points_from_mesh(
     return sampled.astype(np.float32)
 
 
+def load_point_cloud_file(path: Path) -> np.ndarray:
+    suffix = path.suffix.lower()
+    if suffix == ".npy":
+        points = np.load(path)
+    elif suffix == ".npz":
+        data = np.load(path)
+        key = "points" if "points" in data else list(data.keys())[0]
+        points = data[key]
+    elif suffix in {".txt", ".pts", ".xyz"}:
+        points = np.loadtxt(path)
+    else:
+        raise ValueError(f"Unsupported point file format: {path}")
+
+    points = np.asarray(points, dtype=np.float32)
+    if points.ndim != 2 or points.shape[1] < 3:
+        raise ValueError(f"Expected Nx3+ points in {path}, got shape {points.shape}")
+    return points[:, :3]
+
+
 def _looks_like_modelnet_off_root(path: Path) -> bool:
     if not path.exists() or not path.is_dir():
         return False
@@ -301,24 +326,30 @@ def scan_split_dirs(root: Path, split: str, labels: list[str]) -> list[dict[str,
     for label in labels:
         split_dir = root / label / split
         if split_dir.exists():
-            for path in sorted(split_dir.rglob("*.off")):
-                samples.append({"path": str(path), "label": label})
+            for path in sorted(split_dir.rglob("*")):
+                if path.is_file() and path.suffix.lower() in POINT_EXTENSIONS:
+                    samples.append({"path": str(path), "label": label})
             continue
 
         label_dir = root / label
         if not label_dir.exists():
             continue
-        for path in sorted(label_dir.glob(f"*{split}*.off")):
-            samples.append({"path": str(path), "label": label})
+        for path in sorted(label_dir.iterdir()):
+            if path.is_file() and path.suffix.lower() in POINT_EXTENSIONS and split in path.stem:
+                samples.append({"path": str(path), "label": label})
     return samples
 
 
 def find_sample_path(root: Path, label: str, stem: str) -> Path:
-    candidates = [
-        root / label / f"{stem}.off",
-        root / label / "train" / f"{stem}.off",
-        root / label / "test" / f"{stem}.off",
-    ]
+    candidates = []
+    for suffix in POINT_EXTENSIONS:
+        candidates.extend(
+            [
+                root / label / f"{stem}{suffix}",
+                root / label / "train" / f"{stem}{suffix}",
+                root / label / "test" / f"{stem}{suffix}",
+            ]
+        )
     for candidate in candidates:
         if candidate.exists():
             return candidate
@@ -342,7 +373,8 @@ def read_split_list(root: Path, split: str, labels: list[str]) -> list[dict[str,
                 break
         if matched_label is None:
             continue
-        samples.append({"path": str(find_sample_path(root, matched_label, stem)), "label": matched_label})
+        actual_stem = stem[len(matched_label) + 1 :]
+        samples.append({"path": str(find_sample_path(root, matched_label, actual_stem)), "label": matched_label})
     return samples
 
 
@@ -452,6 +484,94 @@ def write_split_file(output_dir: Path, split: str, h5_filename: str) -> None:
         handle.write(f"{h5_filename}\n")
 
 
+def slugify_name(value: str) -> str:
+    text = value.replace("\\", "/").strip()
+    if not text:
+        return "sample"
+    text = re.sub(r"[^A-Za-z0-9._-]+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("._-")
+    return text or "sample"
+
+
+def infer_sample_stem(sample: dict[str, object], fallback_index: int) -> str:
+    sample_path = str(sample.get("sample_path", "")).replace("\\", "/")
+    if sample_path:
+        if "#" in sample_path:
+            base, suffix = sample_path.split("#", 1)
+            stem = f"{Path(base).stem}_{slugify_name(suffix)}"
+        else:
+            stem = Path(sample_path).stem
+        stem = slugify_name(stem)
+        if stem:
+            return stem
+    return f"sample_{fallback_index:05d}"
+
+
+def process_single_sample(
+    sample: dict[str, object],
+    rng: np.random.Generator,
+    random_drop_min: float,
+    random_drop_max: float,
+    local_drop_min: float,
+    local_drop_max: float,
+    min_keep_ratio: float,
+    normalize_before_chunk: bool,
+    off_num_points: int,
+    sample_method: str,
+) -> tuple[np.ndarray, int, str, str, dict[str, float]]:
+    if "points" in sample:
+        points = np.asarray(sample["points"], dtype=np.float32)
+    else:
+        sample_path = Path(str(sample["path"]))
+        if sample_path.suffix.lower() == ".off":
+            vertices, faces = load_off_mesh(sample_path)
+            points = sample_points_from_mesh(
+                vertices=vertices,
+                faces=faces,
+                num_points=off_num_points,
+                rng=rng,
+                sample_method=sample_method,
+            )
+        else:
+            points = load_point_cloud_file(sample_path)
+
+    reference_points = normalize_points(points) if normalize_before_chunk else points
+    corrupted, stats = apply_single_corruption(
+        points=points,
+        reference_points=reference_points,
+        rng=rng,
+        random_drop_min=random_drop_min,
+        random_drop_max=random_drop_max,
+        local_drop_min=local_drop_min,
+        local_drop_max=local_drop_max,
+        min_keep_ratio=min_keep_ratio,
+    )
+    return (
+        corrupted,
+        int(sample["label_idx"]),
+        str(sample["sample_path"]),
+        str(sample["label_name"]),
+        stats,
+    )
+
+
+def summarize_stats(stats_list: list[dict[str, float]]) -> dict[str, float]:
+    random_drop_values = [stats["random_drop_ratio"] for stats in stats_list]
+    local_drop_values = [stats["local_drop_ratio"] for stats in stats_list]
+    keep_values = [stats["kept_ratio_before_refill"] for stats in stats_list]
+    unique_values = [stats["final_unique_ratio"] for stats in stats_list]
+    random_mode_count = sum(1 for stats in stats_list if stats["corruption_type"] == "random_dropout")
+    local_mode_count = len(stats_list) - random_mode_count
+    return {
+        "mean_random_drop_ratio": float(np.mean(random_drop_values)) if random_drop_values else 0.0,
+        "mean_local_drop_ratio": float(np.mean(local_drop_values)) if local_drop_values else 0.0,
+        "mean_kept_ratio_before_refill": float(np.mean(keep_values)) if keep_values else 0.0,
+        "mean_final_unique_ratio": float(np.mean(unique_values)) if unique_values else 0.0,
+        "random_mode_count": float(random_mode_count),
+        "local_mode_count": float(local_mode_count),
+    }
+
+
 def process_samples(
     samples: list[dict[str, object]],
     seed: int,
@@ -469,59 +589,28 @@ def process_samples(
     label_values: list[int] = []
     sample_paths: list[str] = []
     label_names: list[str] = []
-    random_drop_values = []
-    local_drop_values = []
-    keep_values = []
-    unique_values = []
-    random_mode_count = 0
-    local_mode_count = 0
+    stats_list: list[dict[str, float]] = []
 
     for sample in samples:
-        if "points" in sample:
-            points = np.asarray(sample["points"], dtype=np.float32)
-        else:
-            vertices, faces = load_off_mesh(Path(str(sample["path"])))
-            points = sample_points_from_mesh(
-                vertices=vertices,
-                faces=faces,
-                num_points=off_num_points,
-                rng=rng,
-                sample_method=sample_method,
-            )
-
-        reference_points = normalize_points(points) if normalize_before_chunk else points
-        corrupted, stats = apply_single_corruption(
-            points=points,
-            reference_points=reference_points,
+        corrupted, label_idx, sample_path, label_name, stats = process_single_sample(
+            sample=sample,
             rng=rng,
             random_drop_min=random_drop_min,
             random_drop_max=random_drop_max,
             local_drop_min=local_drop_min,
             local_drop_max=local_drop_max,
             min_keep_ratio=min_keep_ratio,
+            normalize_before_chunk=normalize_before_chunk,
+            off_num_points=off_num_points,
+            sample_method=sample_method,
         )
-
         processed_data.append(corrupted)
-        label_values.append(int(sample["label_idx"]))
-        sample_paths.append(str(sample["sample_path"]))
-        label_names.append(str(sample["label_name"]))
-        random_drop_values.append(stats["random_drop_ratio"])
-        local_drop_values.append(stats["local_drop_ratio"])
-        keep_values.append(stats["kept_ratio_before_refill"])
-        unique_values.append(stats["final_unique_ratio"])
-        if stats["corruption_type"] == "random_dropout":
-            random_mode_count += 1
-        else:
-            local_mode_count += 1
+        label_values.append(label_idx)
+        sample_paths.append(sample_path)
+        label_names.append(label_name)
+        stats_list.append(stats)
 
-    summary = {
-        "mean_random_drop_ratio": float(np.mean(random_drop_values)),
-        "mean_local_drop_ratio": float(np.mean(local_drop_values)),
-        "mean_kept_ratio_before_refill": float(np.mean(keep_values)),
-        "mean_final_unique_ratio": float(np.mean(unique_values)),
-        "random_mode_count": float(random_mode_count),
-        "local_mode_count": float(local_mode_count),
-    }
+    summary = summarize_stats(stats_list)
     return (
         np.stack(processed_data, axis=0).astype(np.float32),
         np.asarray(label_values, dtype=np.int64).reshape(-1, 1),
@@ -529,7 +618,6 @@ def process_samples(
         label_names,
         summary,
     )
-
 
 def infer_input_format(root: Path) -> str:
     try:
@@ -547,9 +635,125 @@ def infer_input_format(root: Path) -> str:
     raise FileNotFoundError(f"Could not detect a usable ModelNet40 dataset under {root}")
 
 
+def build_directory_records(
+    split_samples: list[dict[str, object]],
+    processed_data: np.ndarray,
+) -> list[dict[str, object]]:
+    used_names: set[str] = set()
+    records: list[dict[str, object]] = []
+
+    for index, (sample, points) in enumerate(zip(split_samples, processed_data)):
+        label_name = str(sample["label_name"])
+        stem_base = infer_sample_stem(sample, index)
+        stem = stem_base
+        duplicate_index = 1
+        key = f"{label_name}/{stem}"
+        while key in used_names:
+            stem = f"{stem_base}_{duplicate_index:02d}"
+            duplicate_index += 1
+            key = f"{label_name}/{stem}"
+        used_names.add(key)
+        records.append({"label_name": label_name, "stem": stem, "points": points})
+    return records
+
+
+def write_modelnet_directory_split(
+    output_dir: Path,
+    split: str,
+    labels: list[str],
+    records: list[dict[str, object]],
+    overwrite: bool,
+) -> list[str]:
+    manifest_entries: list[str] = []
+    for label in labels:
+        (output_dir / label / split).mkdir(parents=True, exist_ok=True)
+
+    for record in records:
+        label_name = str(record["label_name"])
+        stem = str(record["stem"])
+        target = output_dir / label_name / split / f"{stem}.npy"
+        if target.exists() and not overwrite:
+            raise FileExistsError(f"Output file already exists: {target}. Use --overwrite to replace it.")
+        np.save(target, np.asarray(record["points"], dtype=np.float32))
+        manifest_entries.append(f"{label_name}_{stem}")
+
+    manifest_path = output_dir / f"modelnet40_{split}.txt"
+    with open(manifest_path, "w", encoding="utf-8") as handle:
+        for entry in manifest_entries:
+            handle.write(f"{entry}\n")
+    return manifest_entries
+
+
+
+def process_modelnet_directory_split(
+    output_dir: Path,
+    split: str,
+    labels: list[str],
+    samples: list[dict[str, object]],
+    seed: int,
+    random_drop_min: float,
+    random_drop_max: float,
+    local_drop_min: float,
+    local_drop_max: float,
+    min_keep_ratio: float,
+    normalize_before_chunk: bool,
+    off_num_points: int,
+    sample_method: str,
+    overwrite: bool,
+    progress_every: int = 200,
+) -> tuple[int, dict[str, float]]:
+    rng = np.random.default_rng(seed)
+    for label in labels:
+        (output_dir / label / split).mkdir(parents=True, exist_ok=True)
+
+    used_names: set[str] = set()
+    manifest_entries: list[str] = []
+    stats_list: list[dict[str, float]] = []
+
+    total = len(samples)
+    for index, sample in enumerate(samples, start=1):
+        corrupted, _label_idx, _sample_path, label_name, stats = process_single_sample(
+            sample=sample,
+            rng=rng,
+            random_drop_min=random_drop_min,
+            random_drop_max=random_drop_max,
+            local_drop_min=local_drop_min,
+            local_drop_max=local_drop_max,
+            min_keep_ratio=min_keep_ratio,
+            normalize_before_chunk=normalize_before_chunk,
+            off_num_points=off_num_points,
+            sample_method=sample_method,
+        )
+        stem_base = infer_sample_stem(sample, index - 1)
+        stem = stem_base
+        duplicate_index = 1
+        key = f"{label_name}/{stem}"
+        while key in used_names:
+            stem = f"{stem_base}_{duplicate_index:02d}"
+            duplicate_index += 1
+            key = f"{label_name}/{stem}"
+        used_names.add(key)
+
+        target = output_dir / label_name / split / f"{stem}.npy"
+        if target.exists() and not overwrite:
+            raise FileExistsError(f"Output file already exists: {target}. Use --overwrite to replace it.")
+        np.save(target, corrupted.astype(np.float32))
+        manifest_entries.append(f"{label_name}_{stem}")
+        stats_list.append(stats)
+
+        if index == 1 or index % progress_every == 0 or index == total:
+            print(f"[{split}] progress {index}/{total} | latest={target}", flush=True)
+
+    manifest_path = output_dir / f"modelnet40_{split}.txt"
+    with open(manifest_path, "w", encoding="utf-8") as handle:
+        for entry in manifest_entries:
+            handle.write(f"{entry}\n")
+
+    return len(manifest_entries), summarize_stats(stats_list)
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate a mildly corrupted ModelNet40 h5 dataset from OFF or h5 input."
+        description="Generate a mildly corrupted ModelNet40 dataset from OFF or h5 input."
     )
     parser.add_argument("--modelnet40-root", default="data/ModelNet40")
     parser.add_argument(
@@ -562,7 +766,13 @@ def main() -> None:
     parser.add_argument(
         "--output-root",
         default="data/ModelNet40_mild",
-        help="Root folder for processed h5 files.",
+        help="Root folder for processed data.",
+    )
+    parser.add_argument(
+        "--output-format",
+        default="modelnet",
+        choices=["modelnet", "h5"],
+        help="Output as ModelNet-style directories or legacy h5 files.",
     )
     parser.add_argument(
         "--num-points",
@@ -595,13 +805,14 @@ def main() -> None:
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Overwrite output h5 if it already exists.",
+        help="Overwrite output files if they already exist.",
     )
     args = parser.parse_args()
 
     input_root = Path(args.modelnet40_root)
     input_format = infer_input_format(input_root) if args.input_format == "auto" else args.input_format
-    output_dir = Path(args.output_root) / "modelnet40_ply_hdf5_2048"
+    output_root = Path(args.output_root)
+    output_dir = output_root / "modelnet40_ply_hdf5_2048" if args.output_format == "h5" else output_root
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if input_format == "off":
@@ -639,13 +850,6 @@ def main() -> None:
     requested_splits = ["train", "test"] if args.split == "both" else [args.split]
 
     for split_index, split in enumerate(requested_splits):
-        h5_filename = "ply_data_train0.h5" if split == "train" else "ply_data_test0.h5"
-        output_h5 = output_dir / h5_filename
-        if output_h5.exists() and not args.overwrite:
-            raise FileExistsError(
-                f"Output file already exists: {output_h5}. Use --overwrite to replace it."
-            )
-
         processed_data, labels_array, sample_paths, label_names, summary = process_samples(
             samples=split_to_samples[split],
             seed=args.seed + split_index,
@@ -659,26 +863,58 @@ def main() -> None:
             sample_method=args.sample_method,
         )
 
-        string_dtype = h5py.string_dtype(encoding="utf-8")
-        with h5py.File(output_h5, "w") as handle:
-            handle.create_dataset("data", data=processed_data, compression="gzip")
-            handle.create_dataset("label", data=labels_array, compression="gzip")
-            handle.create_dataset(
-                "sample_path",
-                data=np.asarray(sample_paths, dtype=object),
-                dtype=string_dtype,
-            )
-            handle.create_dataset(
-                "label_name",
-                data=np.asarray(label_names, dtype=object),
-                dtype=string_dtype,
-            )
+        if args.output_format == "h5":
+            h5_filename = "ply_data_train0.h5" if split == "train" else "ply_data_test0.h5"
+            output_h5 = output_dir / h5_filename
+            if output_h5.exists() and not args.overwrite:
+                raise FileExistsError(
+                    f"Output file already exists: {output_h5}. Use --overwrite to replace it."
+                )
 
-        write_split_file(output_dir, split, h5_filename)
+            string_dtype = h5py.string_dtype(encoding="utf-8")
+            with h5py.File(output_h5, "w") as handle:
+                handle.create_dataset("data", data=processed_data, compression="gzip")
+                handle.create_dataset("label", data=labels_array, compression="gzip")
+                handle.create_dataset(
+                    "sample_path",
+                    data=np.asarray(sample_paths, dtype=object),
+                    dtype=string_dtype,
+                )
+                handle.create_dataset(
+                    "label_name",
+                    data=np.asarray(label_names, dtype=object),
+                    dtype=string_dtype,
+                )
 
-        print(f"[{split}] input_format={input_format}")
-        print(f"[{split}] output: {output_h5}")
-        print(f"[{split}] samples={len(processed_data)} | points_per_sample={processed_data.shape[1]}")
+            write_split_file(output_dir, split, h5_filename)
+            output_summary = str(output_h5)
+        else:
+            print(f"[{split}] input_format={input_format} | output_format={args.output_format}", flush=True)
+            print(f"[{split}] processing {len(split_to_samples[split])} samples into {output_dir}", flush=True)
+            written_count, summary = process_modelnet_directory_split(
+                output_dir=output_dir,
+                split=split,
+                labels=labels,
+                samples=split_to_samples[split],
+                seed=args.seed + split_index,
+                random_drop_min=args.random_drop_min,
+                random_drop_max=args.random_drop_max,
+                local_drop_min=args.local_drop_min,
+                local_drop_max=args.local_drop_max,
+                min_keep_ratio=args.min_keep_ratio,
+                normalize_before_chunk=args.normalize_before_chunk,
+                off_num_points=args.num_points,
+                sample_method=args.sample_method,
+                overwrite=args.overwrite,
+            )
+            output_summary = f"{output_dir} ({written_count} files)"
+            processed_data = None
+
+        print(f"[{split}] output: {output_summary}")
+        if processed_data is not None:
+            print(f"[{split}] samples={len(processed_data)} | points_per_sample={processed_data.shape[1]}")
+        else:
+            print(f"[{split}] samples={len(split_to_samples[split])} | points_per_sample={args.num_points}")
         print(
             f"[{split}] mean_random_drop={summary['mean_random_drop_ratio']:.4f} "
             f"mean_local_drop={summary['mean_local_drop_ratio']:.4f} "
@@ -691,8 +927,12 @@ def main() -> None:
         )
 
     print(f"shape_names: {output_dir / 'shape_names.txt'}")
-    print(f"train_files : {output_dir / 'train_files.txt'}")
-    print(f"test_files  : {output_dir / 'test_files.txt'}")
+    if args.output_format == "h5":
+        print(f"train_files : {output_dir / 'train_files.txt'}")
+        print(f"test_files  : {output_dir / 'test_files.txt'}")
+    else:
+        print(f"train_split : {output_dir / 'modelnet40_train.txt'}")
+        print(f"test_split  : {output_dir / 'modelnet40_test.txt'}")
 
 
 if __name__ == "__main__":

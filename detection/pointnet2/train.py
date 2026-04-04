@@ -34,6 +34,11 @@ except Exception:
     h5py = None
 
 try:
+    import open3d as o3d
+except Exception:
+    o3d = None
+
+try:
     import wandb
 except Exception:
     wandb = None
@@ -147,6 +152,34 @@ def load_off_mesh(path):
     if len(vertices) == 0 or len(faces) == 0:
         raise ValueError(f"OFF file has no valid vertices or faces after filtering: {path}")
     return vertices, faces
+
+
+POINT_EXTENSIONS = {".off", ".npy", ".npz", ".txt", ".pts", ".xyz", ".pcd", ".ply"}
+
+
+def load_point_cloud_file(path):
+    path = Path(path)
+    suffix = path.suffix.lower()
+    if suffix == ".npy":
+        points = np.load(path)
+    elif suffix == ".npz":
+        data = np.load(path)
+        key = "points" if "points" in data else list(data.keys())[0]
+        points = data[key]
+    elif suffix in {".txt", ".pts", ".xyz"}:
+        points = np.loadtxt(path)
+    elif suffix in {".pcd", ".ply"}:
+        if o3d is None:
+            raise RuntimeError(f"open3d is required to read {suffix} files. Install it before training.")
+        point_cloud = o3d.io.read_point_cloud(str(path))
+        points = np.asarray(point_cloud.points)
+    else:
+        raise ValueError(f"Unsupported point file format: {path}")
+
+    points = np.asarray(points, dtype=np.float32)
+    if points.ndim != 2 or points.shape[1] < 3:
+        raise ValueError(f"Expected Nx3+ points in {path}, got shape {points.shape}")
+    return points[:, :3]
 
 
 def sample_points_from_mesh(vertices, faces, num_points, rng):
@@ -279,25 +312,31 @@ class ModelNet40OffDataset(Dataset):
             split_dir = self.root / label / split
             if not split_dir.exists():
                 continue
-            for path in sorted(split_dir.glob("*.off")):
-                self.samples.append({"path": path, "label_idx": label_idx})
+            for path in sorted(split_dir.rglob("*")):
+                if path.is_file() and path.suffix.lower() in POINT_EXTENSIONS:
+                    self.samples.append({"path": path, "label_idx": label_idx})
 
         if not self.samples:
-            raise RuntimeError(f"No OFF files found for split '{split}' under {self.root}.")
+            raise RuntimeError(f"No ModelNet40 files found for split '{split}' under {self.root}.")
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
         sample = self.samples[idx]
-        vertices, faces = load_off_mesh(sample["path"])
-        try:
-            points = sample_points_from_mesh(vertices, faces, self.num_points, self.rng)
-        except ValueError:
-            safe_vertices = vertices[np.isfinite(vertices).all(axis=1)]
-            if len(safe_vertices) == 0:
-                raise
-            points = sample_points(safe_vertices.astype(np.float32), self.num_points, self.rng).astype(np.float32)
+        sample_path = Path(sample["path"])
+        if sample_path.suffix.lower() == ".off":
+            vertices, faces = load_off_mesh(sample_path)
+            try:
+                points = sample_points_from_mesh(vertices, faces, self.num_points, self.rng)
+            except ValueError:
+                safe_vertices = vertices[np.isfinite(vertices).all(axis=1)]
+                if len(safe_vertices) == 0:
+                    raise
+                points = sample_points(safe_vertices.astype(np.float32), self.num_points, self.rng).astype(np.float32)
+        else:
+            raw_points = load_point_cloud_file(sample_path)
+            points = sample_points(raw_points.astype(np.float32), self.num_points, self.rng).astype(np.float32)
         points = normalize_points(points)
         if self.augment:
             points = maybe_augment(points, self.rng)

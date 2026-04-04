@@ -15,7 +15,15 @@ try:
 except Exception:
     trimesh = None
 
+try:
+    import open3d as o3d
+except Exception:
+    o3d = None
+
 from TSDF.dataset.scanobjectnn_data import maybe_augment, normalize_points
+
+
+POINT_EXTENSIONS = {".off", ".npy", ".npz", ".txt", ".pts", ".xyz", ".pcd", ".ply"}
 
 
 def _resolve_root(root):
@@ -51,6 +59,7 @@ def _looks_like_modelnet_root(path):
     shape_name_files = [
         path / "modelnet40_shape_names.txt",
         path / "shape_names.txt",
+        path / "labels.txt",
     ]
     if any(candidate.exists() for candidate in shape_name_files):
         return True
@@ -60,7 +69,7 @@ def _looks_like_modelnet_root(path):
             continue
         if (class_dir / "train").exists() or (class_dir / "test").exists():
             return True
-        if any(class_dir.glob("*.off")):
+        if any(child.suffix.lower() in POINT_EXTENSIONS for child in class_dir.glob("*")):
             return True
     return False
 
@@ -69,6 +78,7 @@ def _read_shape_names(root):
     candidates = [
         root / "modelnet40_shape_names.txt",
         root / "shape_names.txt",
+        root / "labels.txt",
     ]
     for candidate in candidates:
         if candidate.exists():
@@ -94,52 +104,26 @@ def _scan_split_dirs(root, split, labels):
         if not split_dir.exists():
             label_dir = root / label
             if label_dir.exists():
-                for path in sorted(label_dir.glob(f"*{split}*.off")):
-                    samples.append({"path": str(path), "label": label})
+                for path in sorted(label_dir.iterdir()):
+                    if path.is_file() and path.suffix.lower() in POINT_EXTENSIONS and split in path.stem:
+                        samples.append({"path": str(path), "label": label})
             continue
-        for path in sorted(split_dir.rglob("*.off")):
-            samples.append({"path": str(path), "label": label})
+        for path in sorted(split_dir.rglob("*")):
+            if path.is_file() and path.suffix.lower() in POINT_EXTENSIONS:
+                samples.append({"path": str(path), "label": label})
     return samples
 
 
-def _looks_like_modelnet_root(path):
-    path = Path(path)
-    if not path.exists() or not path.is_dir():
-        return False
-
-    split_files = [
-        path / "modelnet40_train.txt",
-        path / "modelnet40_test.txt",
-        path / "train_files.txt",
-        path / "test_files.txt",
-    ]
-    if any(candidate.exists() for candidate in split_files):
-        return True
-
-    shape_name_files = [
-        path / "modelnet40_shape_names.txt",
-        path / "shape_names.txt",
-    ]
-    if any(candidate.exists() for candidate in shape_name_files):
-        return True
-
-    for class_dir in path.iterdir():
-        if not class_dir.is_dir():
-            continue
-        if (class_dir / "train").exists() or (class_dir / "test").exists():
-            return True
-        if any(class_dir.glob("*.off")):
-            return True
-    return False
-
-
-
 def _find_sample_path(root, label, stem):
-    candidates = [
-        root / label / f"{stem}.off",
-        root / label / "train" / f"{stem}.off",
-        root / label / "test" / f"{stem}.off",
-    ]
+    candidates = []
+    for suffix in POINT_EXTENSIONS:
+        candidates.extend(
+            [
+                root / label / f"{stem}{suffix}",
+                root / label / "train" / f"{stem}{suffix}",
+                root / label / "test" / f"{stem}{suffix}",
+            ]
+        )
     for candidate in candidates:
         if candidate.exists():
             return candidate
@@ -166,18 +150,19 @@ def _read_split_list(root, split, labels):
             item = line.strip().replace("\\", "/")
             if not item:
                 continue
-            item = Path(item).stem
+            stem = Path(item).stem
             matched_label = None
             for label in label_set:
                 prefix = f"{label}_"
-                if item.startswith(prefix):
+                if stem.startswith(prefix):
                     matched_label = label
                     break
             if matched_label is None:
                 continue
+            actual_stem = stem[len(matched_label) + 1 :]
             samples.append(
                 {
-                    "path": str(_find_sample_path(root, matched_label, item)),
+                    "path": str(_find_sample_path(root, matched_label, actual_stem)),
                     "label": matched_label,
                 }
             )
@@ -201,6 +186,32 @@ def build_modelnet40_splits(root):
             "Expected either modelnet40_train.txt/modelnet40_test.txt or class/train|test folders."
         )
     return labels, train_samples, test_samples
+
+
+def load_point_cloud_file(path):
+    path = Path(path)
+    suffix = path.suffix.lower()
+    if suffix == ".npy":
+        points = np.load(path)
+    elif suffix == ".npz":
+        data = np.load(path)
+        key = "points" if "points" in data else list(data.keys())[0]
+        points = data[key]
+    elif suffix in {".txt", ".pts", ".xyz"}:
+        points = np.loadtxt(path)
+    elif suffix in {".pcd", ".ply"}:
+        if o3d is None:
+            raise RuntimeError(
+                f"open3d is required to read {suffix} files. Install it before training."
+            )
+        point_cloud = o3d.io.read_point_cloud(str(path))
+        points = np.asarray(point_cloud.points)
+    else:
+        raise ValueError(f"Unsupported point file format: {path}")
+
+    if points.ndim != 2 or points.shape[1] < 3:
+        raise ValueError(f"Expected Nx3+ points in {path}, got shape {points.shape}")
+    return np.asarray(points[:, :3], dtype=np.float32)
 
 
 def load_off_points(path, num_points, rng, sample_method="surface"):
@@ -258,12 +269,21 @@ class ModelNet40Dataset(Dataset):
 
     def __getitem__(self, idx):
         sample = self.samples[idx]
-        points = load_off_points(
-            sample["path"],
-            num_points=self.num_points,
-            rng=self.rng,
-            sample_method=self.sample_method,
-        )
+        sample_path = Path(sample["path"])
+        if sample_path.suffix.lower() == ".off":
+            points = load_off_points(
+                sample_path,
+                num_points=self.num_points,
+                rng=self.rng,
+                sample_method=self.sample_method,
+            )
+        else:
+            points = load_point_cloud_file(sample_path)
+            if len(points) >= self.num_points:
+                choice = self.rng.choice(len(points), self.num_points, replace=False)
+            else:
+                choice = self.rng.choice(len(points), self.num_points, replace=True)
+            points = points[choice].astype(np.float32)
         if self.normalize:
             points = normalize_points(points)
         if self.augment:

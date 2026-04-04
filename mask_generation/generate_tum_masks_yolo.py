@@ -1,11 +1,8 @@
 import argparse
 import json
 import os
-<<<<<<< HEAD
-=======
 import shutil
 from datetime import datetime
->>>>>>> upstream/main
 from pathlib import Path
 
 import cv2
@@ -19,9 +16,6 @@ try:
 except Exception:
     YOLO = None
 
-<<<<<<< HEAD
-
-=======
 '''
 
  python3 mask_generation/generate_tum_masks_yolo.py \
@@ -29,7 +23,6 @@ except Exception:
   --model yolov8x-seg.pt \
   --target-class book
 '''
->>>>>>> upstream/main
 TSDF_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -60,11 +53,7 @@ def load_config(path):
 
 
 def parse_list(filepath):
-<<<<<<< HEAD
-    return np.loadtxt(filepath, delimiter=" ", dtype=np.str_)
-=======
     return np.loadtxt(filepath, delimiter=" ", dtype=str)
->>>>>>> upstream/main
 
 
 def sanitize_name(name):
@@ -74,12 +63,8 @@ def sanitize_name(name):
 def build_default_output_dir(config_path, target_classes, model_name):
     target_tag = "_".join(sanitize_name(name) for name in target_classes)
     model_tag = sanitize_name(model_name)
-<<<<<<< HEAD
-    return TSDF_ROOT / "mask_generation" / "outputs" / f"{Path(config_path).stem}_{target_tag}_{model_tag}"
-=======
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return TSDF_ROOT / "mask_generation" / "outputs" / f"{Path(config_path).stem}_{target_tag}_{model_tag}_{timestamp}"
->>>>>>> upstream/main
 
 
 def load_rgb_entries(dataset_path, frame_stride=1, max_frames=None):
@@ -241,8 +226,6 @@ def result_to_instances(result, categories):
     return instances
 
 
-<<<<<<< HEAD
-=======
 def cleanup_rejected_track_outputs(output_dir, preview_root, track_id):
     track_mask_dir = Path(output_dir) / "masks" / f"track_{track_id:03d}"
     if track_mask_dir.exists():
@@ -253,7 +236,6 @@ def cleanup_rejected_track_outputs(output_dir, preview_root, track_id):
             shutil.rmtree(track_preview_dir, ignore_errors=True)
 
 
->>>>>>> upstream/main
 def generate_masks(args):
     config = load_config(args.config)
     dataset_path = args.dataset or config["Dataset"]["dataset_path"]
@@ -289,10 +271,7 @@ def generate_masks(args):
         "dataset": str(dataset_path),
         "target_class": args.target_class,
         "model": str(args.model),
-<<<<<<< HEAD
-=======
         "created_at": datetime.now().isoformat(timespec="seconds"),
->>>>>>> upstream/main
         "score_threshold": args.score_threshold,
         "merge_mode": args.merge_mode,
         "device": select_device(args.device),
@@ -301,11 +280,8 @@ def generate_masks(args):
         "frames_without_detection": 0,
         "frames_saved": 0,
         "separate_instances": bool(args.separate_instances),
-<<<<<<< HEAD
-=======
         "min_instance_mask_pixels": int(args.min_instance_mask_pixels),
         "min_track_frames": int(args.min_track_frames),
->>>>>>> upstream/main
     }
 
     mask_txt_path = output_dir / "mask.txt"
@@ -334,10 +310,7 @@ def generate_masks(args):
                 for det_idx, instance in enumerate(instances)
                 if normalize_target_name(instance["label"]) in {normalize_target_name(name) for name in args.target_class}
                 and instance["score"] >= args.score_threshold
-<<<<<<< HEAD
-=======
                 and int(instance["mask"].sum()) >= args.min_instance_mask_pixels
->>>>>>> upstream/main
             ]
 
             binary_mask = np.zeros(image_np.shape[:2], dtype=np.uint8)
@@ -427,9 +400,6 @@ def generate_masks(args):
 
     if args.separate_instances:
         track_summaries = []
-<<<<<<< HEAD
-        for track_id, lines in sorted(track_lines.items()):
-=======
         rejected_tracks = []
         for track_id, lines in sorted(track_lines.items()):
             frames_saved = track_stats[track_id]["frames_saved"]
@@ -447,31 +417,21 @@ def generate_masks(args):
                     }
                 )
                 continue
->>>>>>> upstream/main
             track_mask_txt_path = output_dir / f"mask_track_{track_id:03d}.txt"
             with open(track_mask_txt_path, "w", encoding="utf-8") as handle:
                 handle.writelines(lines)
             track_summaries.append(
                 {
                     "track_id": track_id,
-<<<<<<< HEAD
-                    "frames_saved": track_stats[track_id]["frames_saved"],
-=======
                     "frames_saved": frames_saved,
->>>>>>> upstream/main
                     "mask_list": str(track_mask_txt_path),
                 }
             )
         metadata["tracks"] = track_summaries
-<<<<<<< HEAD
-    else:
-        metadata["tracks"] = []
-=======
         metadata["rejected_tracks"] = rejected_tracks
     else:
         metadata["tracks"] = []
         metadata["rejected_tracks"] = []
->>>>>>> upstream/main
 
     metadata_path = output_dir / "metadata.json"
     with open(metadata_path, "w", encoding="utf-8") as handle:
@@ -512,11 +472,7 @@ def build_argparser():
     parser.add_argument(
         "--output-dir",
         default=None,
-<<<<<<< HEAD
-        help="Directory to save masks. Defaults to mask_generation/outputs/<config>_<target>_<model>.",
-=======
         help="Directory to save masks. Defaults to a timestamped folder under mask_generation/outputs/<config>_<target>_<model>_<timestamp>.",
->>>>>>> upstream/main
     )
     parser.add_argument(
         "--device",
@@ -528,15 +484,12 @@ def build_argparser():
     parser.add_argument("--score-threshold", type=float, default=0.35)
     parser.add_argument("--nms-iou", type=float, default=0.7)
     parser.add_argument(
-<<<<<<< HEAD
-=======
         "--min-instance-mask-pixels",
         type=int,
         default=2500,
         help="Ignore small masks below this pixel count before tracking or saving.",
     )
     parser.add_argument(
->>>>>>> upstream/main
         "--merge-mode",
         choices=("union", "top1"),
         default="top1",
@@ -544,10 +497,6 @@ def build_argparser():
     )
     parser.add_argument(
         "--separate-instances",
-<<<<<<< HEAD
-        action="store_true",
-        help="Save same-class detections as separate instance tracks instead of merging them.",
-=======
         dest="separate_instances",
         action="store_true",
         help="Save same-class detections as separate instance tracks. Enabled by default.",
@@ -557,15 +506,10 @@ def build_argparser():
         dest="separate_instances",
         action="store_false",
         help="Merge same-class detections instead of saving them as separate instance tracks.",
->>>>>>> upstream/main
     )
     parser.add_argument("--max-track-gap", type=int, default=10)
     parser.add_argument("--track-iou-threshold", type=float, default=0.05)
     parser.add_argument("--track-center-threshold", type=float, default=120.0)
-<<<<<<< HEAD
-    parser.add_argument("--save-preview", action="store_true")
-    parser.add_argument("--log-every", type=int, default=50)
-=======
     parser.add_argument(
         "--min-track-frames",
         type=int,
@@ -575,7 +519,6 @@ def build_argparser():
     parser.add_argument("--save-preview", action="store_true")
     parser.add_argument("--log-every", type=int, default=50)
     parser.set_defaults(separate_instances=True)
->>>>>>> upstream/main
     return parser
 
 

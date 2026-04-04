@@ -9,11 +9,6 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
-try:
-    import open3d as o3d
-except Exception:
-    o3d = None
-
 
 
 # python detection/train_pointnet_cls.py \
@@ -39,11 +34,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from TSDF.detection.pointnet_model import PointNetCls, feature_transform_regularizer
-<<<<<<< HEAD
-from TSDF.dataset.modelnet40_data import get_modelnet40_dataloaders
-=======
 from TSDF.detection.training_plots import plot_classification_history
->>>>>>> upstream/main
 from TSDF.dataset.scanobjectnn_data import (
     SCANOBJECTNN_LABELS,
     get_scanobjectnn_dataloaders,
@@ -130,7 +121,21 @@ class PointCloudClassificationDataset(Dataset):
         return len(self.samples)
 
     def _load_points(self, path):
-        return load_point_cloud_file(path)
+        path = Path(path)
+        if path.suffix == ".npy":
+            points = np.load(path)
+        elif path.suffix == ".npz":
+            data = np.load(path)
+            key = "points" if "points" in data else list(data.keys())[0]
+            points = data[key]
+        elif path.suffix in {".txt", ".pts", ".xyz"}:
+            points = np.loadtxt(path)
+        else:
+            raise ValueError(f"Unsupported point file format: {path}")
+
+        if points.ndim != 2 or points.shape[1] < 3:
+            raise ValueError(f"Expected Nx3+ points in {path}, got shape {points.shape}")
+        return points[:, :3]
 
     def __getitem__(self, idx):
         sample = self.samples[idx]
@@ -150,32 +155,6 @@ def read_manifest(manifest_path):
     if not isinstance(data, list):
         raise ValueError("Manifest must be a JSON list of {'path': ..., 'label': ...}.")
     return data
-
-
-def load_point_cloud_file(path):
-    path = Path(path)
-    suffix = path.suffix.lower()
-    if suffix == ".npy":
-        points = np.load(path)
-    elif suffix == ".npz":
-        data = np.load(path)
-        key = "points" if "points" in data else list(data.keys())[0]
-        points = data[key]
-    elif suffix in {".txt", ".pts", ".xyz"}:
-        points = np.loadtxt(path)
-    elif suffix in {".pcd", ".ply"}:
-        if o3d is None:
-            raise RuntimeError(
-                f"open3d is required to read {suffix} files. Install it before training."
-            )
-        point_cloud = o3d.io.read_point_cloud(str(path))
-        points = np.asarray(point_cloud.points)
-    else:
-        raise ValueError(f"Unsupported point file format: {path}")
-
-    if points.ndim != 2 or points.shape[1] < 3:
-        raise ValueError(f"Expected Nx3+ points in {path}, got shape {points.shape}")
-    return points[:, :3]
 
 
 def load_h5_samples(h5_path):
@@ -224,7 +203,7 @@ def build_dir_splits(data_root):
 
     train_samples = []
     test_samples = []
-    exts = {".npy", ".npz", ".txt", ".pts", ".xyz", ".pcd", ".ply"}
+    exts = {".npy", ".npz", ".txt", ".pts", ".xyz"}
     for label in labels:
         train_dir = data_root / label / "train"
         test_dir = data_root / label / "test"
@@ -292,9 +271,9 @@ def main():
     )
     parser.add_argument(
         "--dataset-type",
-        choices=["dir", "h5", "scanobjectnn", "modelnet40"],
+        choices=["dir", "h5", "scanobjectnn"],
         default="dir",
-        help="Use a folder dataset, h5 files, ScanObjectNN, or ModelNet40.",
+        help="Use a folder dataset or ScanObjectNN-style h5 files.",
     )
     parser.add_argument(
         "--data-root",
@@ -323,17 +302,6 @@ def main():
         action="store_true",
         help="Use main_split_nobg instead of main_split for ScanObjectNN.",
     )
-    parser.add_argument(
-        "--modelnet40-root",
-        default=str(TSDF_ROOT / "data" / "ModelNet40"),
-        help="Root directory created by download_modelnet40_kaggle.py",
-    )
-    parser.add_argument(
-        "--modelnet40-sample-method",
-        choices=["surface", "vertices"],
-        default="surface",
-        help="How to convert ModelNet40 .off meshes into point samples.",
-    )
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--num-points", type=int, default=1024)
@@ -342,18 +310,6 @@ def main():
     parser.add_argument("--dropout", type=float, default=0.4)
     parser.add_argument("--label-smoothing", type=float, default=0.1)
     parser.add_argument("--feature-transform-weight", type=float, default=1e-3)
-    parser.add_argument(
-        "--early-stop-patience",
-        type=int,
-        default=0,
-        help="Stop training if validation accuracy does not improve for this many epochs. Set to 0 to disable.",
-    )
-    parser.add_argument(
-        "--early-stop-min-delta",
-        type=float,
-        default=0.0,
-        help="Minimum validation accuracy improvement required to reset early stopping patience.",
-    )
     parser.add_argument(
         "--use-class-weights",
         action="store_true",
@@ -441,7 +397,7 @@ def main():
             num_workers=args.workers,
             drop_last=False,
         )
-    elif args.dataset_type == "scanobjectnn":
+    else:
         if args.scanobjectnn_root is None:
             raise ValueError(
                 "--scanobjectnn-root is required for --dataset-type scanobjectnn"
@@ -458,22 +414,6 @@ def main():
                 seed=args.seed,
             )
         )
-    else:
-        if args.modelnet40_root is None:
-            raise ValueError(
-                "--modelnet40-root is required for --dataset-type modelnet40"
-            )
-        train_dataset, test_dataset, train_loader, test_loader = (
-            get_modelnet40_dataloaders(
-                root=args.modelnet40_root,
-                batch_size=args.batch_size,
-                num_points=args.num_points,
-                workers=args.workers,
-                seed=args.seed,
-                sample_method=args.modelnet40_sample_method,
-            )
-        )
-        labels = train_dataset.labels
 
     labels_path = output_dir / "labels.txt"
     with open(labels_path, "w", encoding="utf-8") as handle:
@@ -512,8 +452,6 @@ def main():
     )
 
     best_acc = 0.0
-    best_epoch = 0
-    epochs_without_improvement = 0
     best_ckpt_path = output_dir / "pointnet_best.pth"
     latest_ckpt_path = output_dir / "pointnet_last.pth"
     history = []
@@ -597,20 +535,9 @@ def main():
             "val_acc": val_acc,
         }
         torch.save(ckpt, latest_ckpt_path)
-        if val_acc > best_acc + args.early_stop_min_delta:
+        if val_acc >= best_acc:
             best_acc = val_acc
-            best_epoch = epoch
-            epochs_without_improvement = 0
             torch.save(ckpt, best_ckpt_path)
-        else:
-            epochs_without_improvement += 1
-
-        if args.early_stop_patience > 0 and epochs_without_improvement >= args.early_stop_patience:
-            print(
-                f"early stopping at epoch {epoch:03d} | "
-                f"best epoch {best_epoch:03d} | best val_acc {best_acc:.4f}"
-            )
-            break
 
     metrics_path = output_dir / "train_metrics.json"
     with open(metrics_path, "w", encoding="utf-8") as handle:

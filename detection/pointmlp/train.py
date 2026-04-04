@@ -1,11 +1,13 @@
 import argparse
 import json
+import random
 import sys
 from pathlib import Path
 
+import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import ConcatDataset, Dataset
+from torch.utils.data import ConcatDataset, DataLoader, Dataset, Subset
 
 try:
     from tqdm import tqdm
@@ -32,18 +34,17 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from TSDF.dataset.extra_object_data import (
+    ModelNet40H5Dataset,
+    ModelNet40OffDataset,
     get_modelnet40_with_extra_dataloaders,
     get_scanobjectnn_with_extra_dataloaders,
+    load_point_file,
     modelnet40_root_exists,
     extra_object_root_exists,
 )
+from TSDF.dataset.scanobjectnn_data import SCANOBJECTNN_LABELS, ScanObjectNNDataset
 from TSDF.detection.pointmlp.pointmlp_cls import PointMLPCls
-<<<<<<< HEAD
-from TSDF.detection.train_pointnet_cls import load_point_cloud_file, set_seed
-=======
 from TSDF.detection.training_plots import plot_classification_history
-from TSDF.detection.train_pointnet_cls import compute_class_weights, set_seed
->>>>>>> upstream/main
 
 try:
     import wandb
@@ -77,11 +78,29 @@ def evaluate(model, dataloader, device, class_weights=None, label_smoothing=0.0)
     return total_loss / max(total_seen, 1), total_correct / max(total_seen, 1)
 
 
+def set_seed(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+
+def build_dataloader(dataset, batch_size, workers, shuffle):
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=workers,
+        drop_last=False,
+    )
+
+
 class ExtraPointCloudDataset(Dataset):
     def __init__(self, point_cloud_path, label_idx, num_points, repeat=1, augment=True, seed=0):
         self.point_cloud_path = str(Path(point_cloud_path).expanduser().resolve())
         self.label_idx = int(label_idx)
-        self.num_points = num_points
+        self.num_points = int(num_points)
         self.repeat = max(int(repeat), 1)
         self.augment = augment
         self.seed = seed
@@ -90,14 +109,12 @@ class ExtraPointCloudDataset(Dataset):
 
         self._maybe_augment = maybe_augment
         self._normalize_points = normalize_points
-        self.points = load_point_cloud_file(self.point_cloud_path)
+        self.points = load_point_file(self.point_cloud_path)
 
     def __len__(self):
         return self.repeat
 
     def __getitem__(self, idx):
-        import numpy as np
-
         rng = np.random.default_rng(self.seed + idx)
         points = self.points.copy()
         points = self._normalize_points(points)
@@ -108,7 +125,7 @@ class ExtraPointCloudDataset(Dataset):
         points = points[choice]
         if self.augment:
             points = self._maybe_augment(points, rng)
-        return torch.from_numpy(points.T.astype("float32")), self.label_idx
+        return torch.from_numpy(points.T.astype(np.float32)), self.label_idx
 
 
 def collect_label_indices(dataset):
@@ -118,13 +135,15 @@ def collect_label_indices(dataset):
             indices.extend(collect_label_indices(subdataset))
         return indices
 
+    if isinstance(dataset, Subset):
+        subset_labels = collect_label_indices(dataset.dataset)
+        return [subset_labels[int(i)] for i in dataset.indices]
+
     if hasattr(dataset, "labels"):
         labels = getattr(dataset, "labels")
         if len(labels) > 0:
             first = labels[0]
-            if isinstance(first, (int,)):
-                return [int(x) for x in labels]
-            if hasattr(first, "item"):
+            if isinstance(first, int) or hasattr(first, "item"):
                 return [int(x) for x in labels]
 
     if isinstance(dataset, ExtraPointCloudDataset):
@@ -139,6 +158,78 @@ def compute_class_weights_for_dataset(dataset, num_classes, device):
     weights = counts.sum() / (len(counts) * counts)
     weights = weights / weights.mean()
     return weights.to(device)
+
+
+def compute_sampled_processed_size(dataset_size, ratio_denominator):
+    ratio_denominator = int(ratio_denominator)
+    if ratio_denominator <= 0:
+        raise ValueError("--mild-ratio-denominator must be a positive integer.")
+    if dataset_size <= 0:
+        return 0
+    if ratio_denominator == 1:
+        return dataset_size
+    return max(1, dataset_size // ratio_denominator)
+
+
+def sample_processed_dataset(dataset, target_size, seed):
+    if target_size >= len(dataset):
+        return dataset
+    generator = torch.Generator().manual_seed(seed)
+    indices = torch.randperm(len(dataset), generator=generator)[:target_size].tolist()
+    return Subset(dataset, indices)
+
+
+def load_processed_scanobjectnn_dataset(args, labels):
+    expected_labels = list(SCANOBJECTNN_LABELS)
+    if list(labels[: len(expected_labels)]) != expected_labels:
+        raise ValueError("Merged labels do not preserve the ScanObjectNN base label order.")
+    return ScanObjectNNDataset(
+        root=args.scanobjectnn_mild_root,
+        split="train",
+        variant=args.scanobjectnn_variant,
+        num_points=args.num_points,
+        use_background=not args.scanobjectnn_no_bg,
+        normalize=True,
+        augment=True,
+        seed=args.seed + 11,
+    )
+
+
+def load_processed_modelnet40_dataset(args, labels):
+    if not modelnet40_root_exists(args.modelnet40_mild_root):
+        raise FileNotFoundError(
+            f"Processed ModelNet40 root does not look valid: {Path(args.modelnet40_mild_root).resolve()}"
+        )
+
+    mild_root = Path(args.modelnet40_mild_root)
+    h5_ready = (
+        (mild_root / "modelnet40_ply_hdf5_2048" / "train_files.txt").exists()
+        or (mild_root / "train_files.txt").exists()
+    )
+
+    if h5_ready:
+        dataset = ModelNet40H5Dataset(
+            root=args.modelnet40_mild_root,
+            split="train",
+            num_points=args.num_points,
+            augment=True,
+            seed=args.seed + 11,
+        )
+        processed_format = "h5"
+    else:
+        dataset = ModelNet40OffDataset(
+            root=args.modelnet40_mild_root,
+            split="train",
+            num_points=args.num_points,
+            augment=True,
+            seed=args.seed + 11,
+        )
+        processed_format = "off"
+
+    base_labels = list(dataset.labels)
+    if list(labels[: len(base_labels)]) != base_labels:
+        raise ValueError("Merged labels do not preserve the ModelNet40 base label order.")
+    return dataset, processed_format
 
 
 def main():
@@ -177,6 +268,27 @@ def main():
         default=str(TSDF_ROOT / "data" / "ModelNet40"),
         help="ModelNet40 root directory.",
     )
+    parser.add_argument(
+        "--use-processed-train-data",
+        action="store_true",
+        help="Append a sampled processed/mild train split to the original training set.",
+    )
+    parser.add_argument(
+        "--scanobjectnn-mild-root",
+        default=str(TSDF_ROOT / "data" / "ScanObjectNN_mild"),
+        help="Processed ScanObjectNN root used when --use-processed-train-data is enabled.",
+    )
+    parser.add_argument(
+        "--modelnet40-mild-root",
+        default=str(TSDF_ROOT / "data" / "ModelNet40_mild"),
+        help="Processed ModelNet40 root used when --use-processed-train-data is enabled.",
+    )
+    parser.add_argument(
+        "--mild-ratio-denominator",
+        type=int,
+        default=5,
+        help="Sample about 1/N of the processed train split when --use-processed-train-data is enabled.",
+    )
     parser.add_argument("--epochs", type=int, default=150)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--num-points", type=int, default=2048)
@@ -189,12 +301,12 @@ def main():
     parser.add_argument("--use-class-weights", action="store_true")
     parser.add_argument(
         "--extra-train-sample",
-        default=str(TSDF_ROOT / "3d_construction" / "outputs" / "fr3_office_main_chair_yolo.pcd"),
+        default=None,
         help="Optional point cloud file to inject into the training set only.",
     )
     parser.add_argument(
         "--extra-train-label",
-        default="chair",
+        default=None,
         help="Label name for --extra-train-sample.",
     )
     parser.add_argument(
@@ -233,40 +345,12 @@ def main():
     else:
         dataset_type = args.dataset_type
 
-<<<<<<< HEAD
-    if args.extra_train_sample:
-        if args.extra_train_label not in labels:
-            raise ValueError(
-                f"Unknown extra train label '{args.extra_train_label}'. Available labels: {labels}"
-            )
-        extra_dataset = ExtraPointCloudDataset(
-            point_cloud_path=args.extra_train_sample,
-            label_idx=labels.index(args.extra_train_label),
-            num_points=args.num_points,
-            repeat=args.extra_train_repeat,
-            augment=True,
-            seed=args.seed + 1000,
-        )
-        train_dataset = ConcatDataset([train_dataset, extra_dataset])
-        train_loader = torch.utils.data.DataLoader(
-            train_dataset,
-            batch_size=args.batch_size,
-            shuffle=True,
-            num_workers=args.workers,
-            drop_last=False,
-        )
-        print(
-            "extra training sample injected: "
-            f"path={Path(args.extra_train_sample).resolve()} "
-            f"label={args.extra_train_label} "
-            f"repeat={args.extra_train_repeat}"
-        )
+    processed_train_dataset_full = None
+    processed_train_dataset = None
+    processed_dataset_root = None
+    processed_dataset_format = None
+    extra_train_dataset = None
 
-    print(
-        f"dataset=ScanObjectNN | variant={args.scanobjectnn_variant} | "
-        f"use_background={not args.scanobjectnn_no_bg}"
-    )
-=======
     if dataset_type == "scanobjectnn":
         labels, train_dataset, test_dataset, train_loader, test_loader = get_scanobjectnn_with_extra_dataloaders(
             scanobjectnn_root=args.scanobjectnn_root,
@@ -284,6 +368,10 @@ def main():
             f"use_background={not args.scanobjectnn_no_bg} | "
             f"extra_object_root={args.extra_object_root if not args.no_extra_object_data else 'disabled'}"
         )
+
+        if args.use_processed_train_data:
+            processed_dataset_root = Path(args.scanobjectnn_mild_root).expanduser().resolve()
+            processed_train_dataset_full = load_processed_scanobjectnn_dataset(args, labels)
     else:
         labels, train_dataset, test_dataset, train_loader, test_loader = get_modelnet40_with_extra_dataloaders(
             modelnet40_root=args.modelnet40_root,
@@ -299,11 +387,71 @@ def main():
             f"extra_object_root={args.extra_object_root if not args.no_extra_object_data else 'disabled'} | "
             f"extra_object_exists={extra_object_root_exists(args.extra_object_root)}"
         )
->>>>>>> upstream/main
+
+        if args.use_processed_train_data:
+            processed_dataset_root = Path(args.modelnet40_mild_root).expanduser().resolve()
+            processed_train_dataset_full, processed_dataset_format = load_processed_modelnet40_dataset(args, labels)
+
+    if args.use_processed_train_data:
+        target_size = compute_sampled_processed_size(
+            dataset_size=len(processed_train_dataset_full),
+            ratio_denominator=args.mild_ratio_denominator,
+        )
+        processed_train_dataset = sample_processed_dataset(
+            processed_train_dataset_full,
+            target_size=target_size,
+            seed=args.seed + 23,
+        )
+        train_dataset = ConcatDataset([train_dataset, processed_train_dataset])
+        train_loader = build_dataloader(
+            train_dataset,
+            batch_size=args.batch_size,
+            workers=args.workers,
+            shuffle=True,
+        )
+
+    if args.extra_train_sample:
+        if not args.extra_train_label:
+            raise ValueError("--extra-train-label is required when --extra-train-sample is set.")
+        if args.extra_train_label not in labels:
+            raise ValueError(
+                f"Unknown extra train label '{args.extra_train_label}'. Available labels: {labels}"
+            )
+        extra_train_dataset = ExtraPointCloudDataset(
+            point_cloud_path=args.extra_train_sample,
+            label_idx=labels.index(args.extra_train_label),
+            num_points=args.num_points,
+            repeat=args.extra_train_repeat,
+            augment=True,
+            seed=args.seed + 1000,
+        )
+        train_dataset = ConcatDataset([train_dataset, extra_train_dataset])
+        train_loader = build_dataloader(
+            train_dataset,
+            batch_size=args.batch_size,
+            workers=args.workers,
+            shuffle=True,
+        )
+
     print(
         f"train_samples={len(train_dataset)} | test_samples={len(test_dataset)} | "
         f"num_classes={len(labels)}"
     )
+    if args.use_processed_train_data:
+        processed_format_text = f" | processed_format={processed_dataset_format}" if processed_dataset_format else ""
+        print(
+            f"processed_train_root={processed_dataset_root}{processed_format_text} | "
+            f"processed_full_samples={len(processed_train_dataset_full)} | "
+            f"processed_sampled_samples={len(processed_train_dataset)} | "
+            f"processed_fraction=1/{args.mild_ratio_denominator}"
+        )
+    if args.extra_train_sample:
+        print(
+            f"extra_train_sample={Path(args.extra_train_sample).expanduser().resolve()} | "
+            f"extra_train_label={args.extra_train_label} | "
+            f"extra_train_repeat={args.extra_train_repeat} | "
+            f"extra_train_samples={len(extra_train_dataset)}"
+        )
 
     labels_path = output_dir / "labels.txt"
     with open(labels_path, "w", encoding="utf-8") as handle:
@@ -411,9 +559,24 @@ def main():
             "val_acc": val_acc,
             "task": "classification",
             "dataset": "ScanObjectNN" if dataset_type == "scanobjectnn" else "ModelNet40",
+            "dataset_type": dataset_type,
             "scanobjectnn_variant": args.scanobjectnn_variant,
             "use_background": not args.scanobjectnn_no_bg,
+            "use_processed_train_data": args.use_processed_train_data,
+            "mild_ratio_denominator": args.mild_ratio_denominator if args.use_processed_train_data else None,
+            "extra_train_sample": str(Path(args.extra_train_sample).expanduser().resolve()) if args.extra_train_sample else None,
+            "extra_train_label": args.extra_train_label,
+            "extra_train_repeat": args.extra_train_repeat if args.extra_train_sample else None,
         }
+        if dataset_type == "scanobjectnn":
+            ckpt["scanobjectnn_root"] = str(Path(args.scanobjectnn_root).resolve())
+            if args.use_processed_train_data:
+                ckpt["scanobjectnn_mild_root"] = str(processed_dataset_root)
+        else:
+            ckpt["modelnet40_root"] = str(Path(args.modelnet40_root).resolve())
+            if args.use_processed_train_data:
+                ckpt["modelnet40_mild_root"] = str(processed_dataset_root)
+                ckpt["processed_dataset_format"] = processed_dataset_format
         torch.save(ckpt, latest_ckpt_path)
         if val_acc >= best_acc:
             best_acc = val_acc

@@ -21,9 +21,11 @@ from scipy.spatial.transform import Rotation
 from scipy.spatial import cKDTree
 
 '''
-python 3d_construction/compare_tsdf_openmvs_no_gt.py \
+cd /home/haochen/code/TSDF
+python3 3d_construction/compare_tsdf_openmvs_no_gt.py \
   --tsdf-pcd 3d_construction/outputs/fr3_office.pcd \
-  --openmvs-workspace openmvs/workspaces/fr3_office_openmvs
+  --openmvs-workspace openmvs/workspaces/fr3_office_openmvs_color
+
 
 '''
 
@@ -359,9 +361,115 @@ def compute_openmvs_slam_metrics(cloud, workspace_info, thresholds, frame_step, 
 def load_point_cloud(path):
     cloud = o3d.io.read_point_cloud(str(path))
     if cloud.is_empty():
-        raise ValueError(f"Empty point cloud: {path}")
+        mesh = o3d.io.read_triangle_mesh(str(path), enable_post_processing=True)
+        if mesh.is_empty():
+            raise ValueError(f"Empty point cloud or mesh: {path}")
+        cloud = sample_mesh_as_colored_cloud(mesh, sample_points_count=300000)
     cloud = cloud.remove_non_finite_points()
     return cloud
+
+
+def sample_mesh_as_colored_cloud(mesh, sample_points_count=300000):
+    vertices = np.asarray(mesh.vertices, dtype=np.float64)
+    triangles = np.asarray(mesh.triangles, dtype=np.int64)
+    if len(vertices) == 0 or len(triangles) == 0:
+        raise ValueError("Mesh is empty.")
+
+    tri_vertices = vertices[triangles]
+    areas = 0.5 * np.linalg.norm(
+        np.cross(
+            tri_vertices[:, 1] - tri_vertices[:, 0],
+            tri_vertices[:, 2] - tri_vertices[:, 0],
+        ),
+        axis=1,
+    )
+    valid = np.isfinite(areas) & (areas > 0)
+    if not np.any(valid):
+        raise ValueError("Mesh has no valid triangles.")
+
+    triangles = triangles[valid]
+    tri_vertices = tri_vertices[valid]
+    probs = areas[valid] / areas[valid].sum()
+    rng = np.random.default_rng(0)
+    face_indices = rng.choice(len(tri_vertices), size=sample_points_count, replace=True, p=probs)
+    chosen_triangles = tri_vertices[face_indices]
+
+    r1 = np.sqrt(rng.random(sample_points_count))
+    r2 = rng.random(sample_points_count)
+    w0 = 1.0 - r1
+    w1 = r1 * (1.0 - r2)
+    w2 = r1 * r2
+    points = (
+        w0[:, None] * chosen_triangles[:, 0]
+        + w1[:, None] * chosen_triangles[:, 1]
+        + w2[:, None] * chosen_triangles[:, 2]
+    )
+
+    colors = None
+    if mesh.has_triangle_uvs() and len(mesh.textures) > 0:
+        triangle_uvs = np.asarray(mesh.triangle_uvs, dtype=np.float64).reshape(-1, 3, 2)
+        triangle_uvs = triangle_uvs[valid]
+        chosen_uvs = triangle_uvs[face_indices]
+        sampled_uvs = (
+            w0[:, None] * chosen_uvs[:, 0]
+            + w1[:, None] * chosen_uvs[:, 1]
+            + w2[:, None] * chosen_uvs[:, 2]
+        )
+        if hasattr(mesh, "triangle_material_ids"):
+            triangle_material_ids = np.asarray(mesh.triangle_material_ids, dtype=np.int64)
+            if len(triangle_material_ids) == len(valid):
+                triangle_material_ids = triangle_material_ids[valid]
+                texture_ids = triangle_material_ids[face_indices]
+            else:
+                texture_ids = np.zeros(sample_points_count, dtype=np.int64)
+        else:
+            texture_ids = np.zeros(sample_points_count, dtype=np.int64)
+
+        colors = np.zeros((sample_points_count, 3), dtype=np.float64)
+        texture_arrays = [np.asarray(texture) for texture in mesh.textures]
+        for texture_idx, texture_array in enumerate(texture_arrays):
+            selection = texture_ids == texture_idx
+            if not np.any(selection):
+                continue
+            image = texture_array
+            if image.ndim == 2:
+                image = np.repeat(image[:, :, None], 3, axis=2)
+            image = image[:, :, :3].astype(np.float64)
+            h, w = image.shape[:2]
+            uv = sampled_uvs[selection]
+            u = np.clip(uv[:, 0], 0.0, 1.0)
+            v = np.clip(uv[:, 1], 0.0, 1.0)
+            x = np.clip(np.round(u * (w - 1)).astype(np.int64), 0, w - 1)
+            y = np.clip(np.round((1.0 - v) * (h - 1)).astype(np.int64), 0, h - 1)
+            colors[selection] = image[y, x] / 255.0
+    elif mesh.has_vertex_colors():
+        vertex_colors = np.asarray(mesh.vertex_colors, dtype=np.float64)
+        chosen_vertex_indices = triangles[face_indices]
+        chosen_vertex_colors = vertex_colors[chosen_vertex_indices]
+        colors = (
+            w0[:, None] * chosen_vertex_colors[:, 0]
+            + w1[:, None] * chosen_vertex_colors[:, 1]
+            + w2[:, None] * chosen_vertex_colors[:, 2]
+        )
+
+    cloud = o3d.geometry.PointCloud()
+    cloud.points = o3d.utility.Vector3dVector(points)
+    if colors is not None:
+        cloud.colors = o3d.utility.Vector3dVector(np.clip(colors, 0.0, 1.0))
+    return cloud
+
+
+def resolve_default_openmvs_compare_cloud(workspace_dir: Path) -> Path:
+    candidates = [
+        workspace_dir / "scene_mesh_refine_texture.ply",
+        workspace_dir / "scene_mesh_refine.ply",
+        workspace_dir / "scene_mesh.ply",
+        workspace_dir / "scene_dense.ply",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return workspace_dir / "scene_dense.ply"
 
 
 def get_points(cloud):
@@ -543,14 +651,14 @@ def random_sample(points, max_points, seed):
     return points[keep]
 
 
-def plot_overview(tsdf_points, openmvs_points, output_path):
+def plot_overview(tsdf_points, openmvs_points, output_path, openmvs_label="OpenMVS"):
     tsdf_xy = random_sample(tsdf_points[:, :2], 25000, 1)
     openmvs_xy = random_sample(openmvs_points[:, :2], 25000, 2)
     tsdf_xz = random_sample(tsdf_points[:, [0, 2]], 25000, 3)
     openmvs_xz = random_sample(openmvs_points[:, [0, 2]], 25000, 4)
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 6), dpi=180)
-    axes[0].scatter(openmvs_xy[:, 0], openmvs_xy[:, 1], s=1, alpha=0.25, label="OpenMVS")
+    axes[0].scatter(openmvs_xy[:, 0], openmvs_xy[:, 1], s=1, alpha=0.25, label=openmvs_label)
     axes[0].scatter(tsdf_xy[:, 0], tsdf_xy[:, 1], s=1, alpha=0.25, label="TSDF")
     axes[0].set_title("Top View (X-Y)")
     axes[0].set_xlabel("X (m)")
@@ -559,7 +667,7 @@ def plot_overview(tsdf_points, openmvs_points, output_path):
     axes[0].grid(alpha=0.25)
 
     axes[1].scatter(
-        openmvs_xz[:, 0], openmvs_xz[:, 1], s=1, alpha=0.25, label="OpenMVS"
+        openmvs_xz[:, 0], openmvs_xz[:, 1], s=1, alpha=0.25, label=openmvs_label
     )
     axes[1].scatter(tsdf_xz[:, 0], tsdf_xz[:, 1], s=1, alpha=0.25, label="TSDF")
     axes[1].set_title("Side View (X-Z)")
@@ -573,7 +681,7 @@ def plot_overview(tsdf_points, openmvs_points, output_path):
     plt.close(fig)
 
 
-def plot_consistency(metrics, thresholds, output_path):
+def plot_consistency(metrics, thresholds, output_path, openmvs_label="OpenMVS"):
     arrays = metrics["_arrays"]
     tsdf_to_openmvs = arrays["tsdf_to_openmvs_distances"]
     openmvs_to_tsdf = arrays["openmvs_to_tsdf_distances"]
@@ -582,7 +690,7 @@ def plot_consistency(metrics, thresholds, output_path):
         np.arccos(np.clip(arrays["openmvs_to_tsdf_cosine_abs"], -1.0, 1.0))
     )
 
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10), dpi=180)
+    fig, axes = plt.subplots(1, 3, figsize=(16, 5), dpi=180)
 
     bins = np.linspace(
         0.0,
@@ -593,58 +701,27 @@ def plot_consistency(metrics, thresholds, output_path):
         ),
         60,
     )
-    axes[0, 0].hist(tsdf_to_openmvs, bins=bins, alpha=0.6, label="TSDF -> OpenMVS")
-    axes[0, 0].hist(openmvs_to_tsdf, bins=bins, alpha=0.6, label="OpenMVS -> TSDF")
-    axes[0, 0].set_title("Nearest-Neighbor Distance")
-    axes[0, 0].set_xlabel("Distance (m)")
-    axes[0, 0].set_ylabel("Count")
-    axes[0, 0].legend(loc="best")
-    axes[0, 0].grid(alpha=0.25)
-
-    coverage_tsdf = [
-        metrics["tsdf_to_openmvs"][f"within_{threshold:.3f}m"] for threshold in thresholds
-    ]
-    coverage_openmvs = [
-        metrics["openmvs_to_tsdf"][f"within_{threshold:.3f}m"] for threshold in thresholds
-    ]
-    axes[0, 1].plot(thresholds, coverage_tsdf, marker="o", label="TSDF -> OpenMVS")
-    axes[0, 1].plot(
-        thresholds, coverage_openmvs, marker="o", label="OpenMVS -> TSDF"
-    )
-    axes[0, 1].set_title("Coverage Within Distance Threshold")
-    axes[0, 1].set_xlabel("Threshold (m)")
-    axes[0, 1].set_ylabel("Fraction")
-    axes[0, 1].set_ylim(0.0, 1.0)
-    axes[0, 1].legend(loc="best")
-    axes[0, 1].grid(alpha=0.25)
+    axes[0].hist(tsdf_to_openmvs, bins=bins, alpha=0.6, label=f"TSDF -> {openmvs_label}")
+    axes[0].hist(openmvs_to_tsdf, bins=bins, alpha=0.6, label=f"{openmvs_label} -> TSDF")
+    axes[0].set_title("Nearest-Neighbor Distance")
+    axes[0].set_xlabel("Distance (m)")
+    axes[0].set_ylabel("Count")
+    axes[0].legend(loc="best")
+    axes[0].grid(alpha=0.25)
 
     angle_bins = np.linspace(0.0, 90.0, 45)
-    axes[1, 0].hist(tsdf_angles, bins=angle_bins, alpha=0.6, label="TSDF -> OpenMVS")
-    axes[1, 0].hist(openmvs_angles, bins=angle_bins, alpha=0.6, label="OpenMVS -> TSDF")
-    axes[1, 0].set_title("Normal-Angle Error")
-    axes[1, 0].set_xlabel("Angle (deg)")
-    axes[1, 0].set_ylabel("Count")
-    axes[1, 0].legend(loc="best")
-    axes[1, 0].grid(alpha=0.25)
+    axes[1].hist(tsdf_angles, bins=angle_bins, alpha=0.6, label=f"TSDF -> {openmvs_label}")
+    axes[1].hist(openmvs_angles, bins=angle_bins, alpha=0.6, label=f"{openmvs_label} -> TSDF")
+    axes[1].set_title("Normal-Angle Error")
+    axes[1].set_xlabel("Angle (deg)")
+    axes[1].set_ylabel("Count")
+    axes[1].legend(loc="best")
+    axes[1].grid(alpha=0.25)
 
-    bar_labels = [
-        "Chamfer-L1",
-        "Sym. RMSE",
-        "Voxel IoU",
-        "TSDF voxel recall",
-        "OpenMVS voxel recall",
-    ]
-    bar_values = [
-        metrics["symmetric_chamfer_l1_m"],
-        metrics["symmetric_rmse_m"],
-        metrics["occupancy_iou"],
-        metrics["tsdf_voxel_recall"],
-        metrics["openmvs_voxel_recall"],
-    ]
-    axes[1, 1].bar(bar_labels, bar_values, color=["C0", "C1", "C2", "C3", "C4"])
-    axes[1, 1].set_title("Summary Metrics")
-    axes[1, 1].tick_params(axis="x", rotation=20)
-    axes[1, 1].grid(axis="y", alpha=0.25)
+    axes[2].bar(["Chamfer-L1"], [metrics["symmetric_chamfer_l1_m"]], color=["C0"])
+    axes[2].set_title("Chamfer Distance")
+    axes[2].set_ylabel("Meters")
+    axes[2].grid(axis="y", alpha=0.25)
 
     fig.tight_layout()
     fig.savefig(output_path, bbox_inches="tight")
@@ -662,51 +739,22 @@ def plot_openmvs_slam_metrics(slam_metrics, output_path):
     mae = [np.nan if item["mae_m"] is None else item["mae_m"] for item in per_frame]
     rmse = [np.nan if item["rmse_m"] is None else item["rmse_m"] for item in per_frame]
 
-    fig, axes = plt.subplots(2, 2, figsize=(14, 9), dpi=180)
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), dpi=180)
 
-    axes[0, 0].plot(frame_ids, sensor_overlap, marker="o", label="sensor overlap ratio")
-    axes[0, 0].plot(frame_ids, render_overlap, marker="o", label="render overlap ratio")
-    axes[0, 0].set_title("OpenMVS Frame Overlap")
-    axes[0, 0].set_xlabel("Eval frame index")
-    axes[0, 0].set_ylabel("Ratio")
-    axes[0, 0].set_ylim(0.0, 1.0)
-    axes[0, 0].legend(loc="best")
-    axes[0, 0].grid(alpha=0.25)
+    axes[0].plot(frame_ids, rmse, marker="o", label="RMSE")
+    axes[0].set_title("OpenMVS Reprojection RMSE")
+    axes[0].set_xlabel("Eval frame index")
+    axes[0].set_ylabel("Error (m)")
+    axes[0].legend(loc="best")
+    axes[0].grid(alpha=0.25)
 
-    axes[0, 1].plot(frame_ids, mae, marker="o", label="MAE")
-    axes[0, 1].plot(frame_ids, rmse, marker="o", label="RMSE")
-    axes[0, 1].set_title("OpenMVS Depth Error")
-    axes[0, 1].set_xlabel("Eval frame index")
-    axes[0, 1].set_ylabel("Error (m)")
-    axes[0, 1].legend(loc="best")
-    axes[0, 1].grid(alpha=0.25)
-
-    labels = ["MAE", "Median", "RMSE", "P90"]
-    values = [
-        slam_metrics.get("mae_m"),
-        slam_metrics.get("median_m"),
-        slam_metrics.get("rmse_m"),
-        slam_metrics.get("p90_m"),
-    ]
-    values = [0.0 if value is None else value for value in values]
-    axes[1, 0].bar(labels, values, color=["C0", "C1", "C2", "C3"])
-    axes[1, 0].set_title("OpenMVS SLAM Summary Error")
-    axes[1, 0].set_ylabel("Meters")
-    axes[1, 0].grid(axis="y", alpha=0.25)
-
-    threshold_keys = [
-        key
-        for key in slam_metrics.keys()
-        if key.startswith("within_") and key.endswith("m")
-    ]
-    threshold_keys = sorted(threshold_keys, key=lambda key: float(key.split("_")[1][:-1]))
-    threshold_vals = [slam_metrics[key] for key in threshold_keys]
-    threshold_vals = [0.0 if value is None else value for value in threshold_vals]
-    axes[1, 1].bar(threshold_keys, threshold_vals, color="C4")
-    axes[1, 1].set_title("OpenMVS Inlier Ratio")
-    axes[1, 1].set_ylabel("Fraction")
-    axes[1, 1].tick_params(axis="x", rotation=20)
-    axes[1, 1].grid(axis="y", alpha=0.25)
+    axes[1].plot(frame_ids, render_overlap, marker="o", label="render overlap ratio")
+    axes[1].set_title("OpenMVS Render Overlap Ratio")
+    axes[1].set_xlabel("Eval frame index")
+    axes[1].set_ylabel("Ratio")
+    axes[1].set_ylim(0.0, 1.0)
+    axes[1].legend(loc="best")
+    axes[1].grid(alpha=0.25)
 
     fig.tight_layout()
     fig.savefig(output_path, bbox_inches="tight")
@@ -732,7 +780,7 @@ def write_summary(report, output_path):
         "",
         f"TSDF input: {report['inputs']['tsdf_pcd']}",
         f"OpenMVS workspace: {report['inputs']['openmvs_workspace']}",
-        f"OpenMVS dense cloud: {report['inputs']['openmvs_dense_cloud']}",
+        f"OpenMVS compare geometry: {report['inputs']['openmvs_compare_cloud']}",
     ]
     if workspace_info:
         lines.append("")
@@ -746,22 +794,16 @@ def write_summary(report, output_path):
             "",
             "Key metrics:",
             f"  symmetric_chamfer_l1_m: {metrics['symmetric_chamfer_l1_m']:.6f}",
-            f"  symmetric_rmse_m: {metrics['symmetric_rmse_m']:.6f}",
             f"  occupancy_iou: {metrics['occupancy_iou']:.4f}",
             f"  tsdf_voxel_recall: {metrics['tsdf_voxel_recall']:.4f}",
             f"  openmvs_voxel_recall: {metrics['openmvs_voxel_recall']:.4f}",
             "",
-            "Directional distances:",
-            f"  TSDF -> OpenMVS mean_m: {metrics['tsdf_to_openmvs']['mean_m']:.6f}",
-            f"  OpenMVS -> TSDF mean_m: {metrics['openmvs_to_tsdf']['mean_m']:.6f}",
-            f"  TSDF -> OpenMVS median_m: {metrics['tsdf_to_openmvs']['median_m']:.6f}",
-            f"  OpenMVS -> TSDF median_m: {metrics['openmvs_to_tsdf']['median_m']:.6f}",
-            "",
             "How to read:",
-            "  Lower Chamfer / RMSE is better.",
+            "  Lower Chamfer is better.",
             "  Higher occupancy IoU / voxel recall is better.",
             "  Lower normal-angle error means local surface direction agrees better.",
             "  These are relative consistency metrics, not absolute accuracy, because no ground truth is used.",
+            "  By default, the OpenMVS side uses the final textured/refined mesh if it exists.",
         ]
     )
     slam_metrics = report.get("openmvs_slam_view_consistency")
@@ -776,12 +818,18 @@ def write_summary(report, output_path):
                 f"  mae_m: {0.0 if slam_metrics['mae_m'] is None else slam_metrics['mae_m']:.6f}",
                 f"  median_m: {0.0 if slam_metrics['median_m'] is None else slam_metrics['median_m']:.6f}",
                 f"  rmse_m: {0.0 if slam_metrics['rmse_m'] is None else slam_metrics['rmse_m']:.6f}",
+                f"  p90_m: {0.0 if slam_metrics['p90_m'] is None else slam_metrics['p90_m']:.6f}",
                 "",
                 "How to read OpenMVS SLAM-view metrics:",
-                "  sensor_overlap_ratio: how much of valid RGB-D depth is explained by the OpenMVS cloud.",
-                "  render_overlap_ratio: how much of the rendered OpenMVS depth lands on valid sensor depth.",
-                "  MAE / RMSE: reprojection depth error against RGB-D frames using known poses.",
-                "  within_xxm: fraction of overlap pixels whose depth error stays under the threshold.",
+                "  sensor_overlap_ratio: among valid sensor depth pixels, how many are covered by the OpenMVS reprojection. Higher is better.",
+                "  render_overlap_ratio: among valid rendered OpenMVS depth pixels, how many fall on valid sensor depth. Higher is better.",
+                "  mae_m: mean absolute depth error after reprojecting OpenMVS into the RGB-D/SLAM camera views. Lower is better.",
+                "  median_m: median reprojection depth error. Lower is better and more robust than MAE.",
+                "  rmse_m: root mean squared reprojection depth error. Lower is better.",
+                "  p90_m: 90th percentile reprojection depth error. Lower is better.",
+                "  within_0.020m / within_0.050m / within_0.100m: fraction of overlap pixels within 2cm / 5cm / 10cm. Higher is better.",
+                "  num_eval_frames: number of RGB-D frames used for evaluation.",
+                "  per_frame in the JSON report stores frame-wise overlap and depth error details.",
             ]
         )
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -797,7 +845,7 @@ def build_report(args, tsdf_raw, openmvs_raw, tsdf_prepared, openmvs_prepared, m
         "inputs": {
             "tsdf_pcd": str(args.tsdf_pcd),
             "openmvs_workspace": str(args.openmvs_workspace),
-            "openmvs_dense_cloud": str(args.openmvs_dense_cloud),
+            "openmvs_compare_cloud": str(args.openmvs_compare_cloud),
             "voxel_size_m": args.voxel_size,
             "normal_radius_m": args.normal_radius,
             "max_points": args.max_points,
@@ -846,10 +894,10 @@ def main():
         help="Path to the OpenMVS workspace directory.",
     )
     parser.add_argument(
-        "--openmvs-dense-cloud",
+        "--openmvs-compare-cloud",
         type=resolve_path,
         default=None,
-        help="Optional explicit dense cloud path. Defaults to <workspace>/scene_dense.ply.",
+        help="Optional explicit OpenMVS geometry for comparison. Defaults to textured refine mesh, then refine/mesh/dense fallback.",
     )
     parser.add_argument(
         "--output-dir",
@@ -900,11 +948,11 @@ def main():
     if not workspace_dir.is_dir():
         raise FileNotFoundError(f"OpenMVS workspace not found: {workspace_dir}")
 
-    args.openmvs_dense_cloud = args.openmvs_dense_cloud or (workspace_dir / "scene_dense.ply")
+    args.openmvs_compare_cloud = args.openmvs_compare_cloud or resolve_default_openmvs_compare_cloud(workspace_dir)
     if not args.tsdf_pcd.exists():
         raise FileNotFoundError(f"TSDF point cloud not found: {args.tsdf_pcd}")
-    if not args.openmvs_dense_cloud.exists():
-        raise FileNotFoundError(f"OpenMVS dense cloud not found: {args.openmvs_dense_cloud}")
+    if not args.openmvs_compare_cloud.exists():
+        raise FileNotFoundError(f"OpenMVS compare geometry not found: {args.openmvs_compare_cloud}")
 
     thresholds = parse_thresholds(args.thresholds)
     output_dir = args.output_dir or default_output_dir(args.tsdf_pcd, workspace_dir)
@@ -912,12 +960,12 @@ def main():
 
     print(f"Loading TSDF point cloud: {args.tsdf_pcd}")
     tsdf_raw = load_point_cloud(args.tsdf_pcd)
-    print(f"Loading OpenMVS dense cloud: {args.openmvs_dense_cloud}")
-    openmvs_raw = load_point_cloud(args.openmvs_dense_cloud)
+    print(f"Loading OpenMVS compare geometry: {args.openmvs_compare_cloud}")
+    openmvs_raw = load_point_cloud(args.openmvs_compare_cloud)
 
     print("Exporting CloudCompare-friendly ASCII PLY files...")
     tsdf_ascii_ply = output_dir / "tsdf_input_standard_ascii.ply"
-    openmvs_ascii_ply = output_dir / "openmvs_scene_dense_standard_ascii.ply"
+    openmvs_ascii_ply = output_dir / "openmvs_compare_geometry_standard_ascii.ply"
     write_standard_ascii_ply(tsdf_raw, tsdf_ascii_ply)
     write_standard_ascii_ply(openmvs_raw, openmvs_ascii_ply)
 
@@ -971,8 +1019,9 @@ def main():
     openmvs_eval_ply = output_dir / "openmvs_eval_downsampled_ascii.ply"
 
     print("Saving figures...")
-    plot_overview(get_points(tsdf_prepared), get_points(openmvs_prepared), overview_png)
-    plot_consistency(metrics, thresholds, consistency_png)
+    openmvs_label = Path(args.openmvs_compare_cloud).stem
+    plot_overview(get_points(tsdf_prepared), get_points(openmvs_prepared), overview_png, openmvs_label=openmvs_label)
+    plot_consistency(metrics, thresholds, consistency_png, openmvs_label=openmvs_label)
     if openmvs_slam_metrics is not None:
         plot_openmvs_slam_metrics(openmvs_slam_metrics, openmvs_slam_png)
 

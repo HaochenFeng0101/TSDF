@@ -12,18 +12,30 @@ try:
 except Exception:
     tqdm = None
 
-'''
-python detection/pointmlp/train_mixed_scanobjectnn.py
+"""
+python detection/pointmlp/train_mixed_dataset.py
 
-python detection/pointmlp/train_mixed_scanobjectnn.py `
+python detection/pointmlp/train_mixed_dataset.py `
+  --dataset-type scanobjectnn `
   --scanobjectnn-root data/ScanObjectNN `
   --scanobjectnn-mild-root data/ScanObjectNN_mild `
   --scanobjectnn-variant pb_t50_rs `
-  --batch-size 4 `
+  --batch-size 16 `
   --num-points 2048 `
   --amp `
   --use-class-weights
-'''
+  --overwrite
+
+python detection/pointmlp/train_mixed_dataset.py `
+  --dataset-type modelnet40 `
+  --modelnet40-root data/ModelNet40 `
+  --modelnet40-mild-root data/ModelNet40_mild `
+  --batch-size 16 `
+  --num-points 2048 `
+  --amp `
+  --use-class-weights `
+  --overwrite
+"""
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -31,9 +43,15 @@ TSDF_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from TSDF.dataset.modelnet40_data import ModelNet40Dataset
 from TSDF.dataset.scanobjectnn_data import SCANOBJECTNN_LABELS, ScanObjectNNDataset
 from TSDF.detection.pointmlp.pointmlp_cls import PointMLPCls
-from TSDF.detection.train_pointnet_cls import load_point_cloud_file, set_seed
+from TSDF.detection.train_pointnet_cls import (
+    H5ClassificationDataset,
+    load_h5_samples,
+    load_point_cloud_file,
+    set_seed,
+)
 
 try:
     import wandb
@@ -108,13 +126,17 @@ def collect_label_indices(dataset):
             indices.extend(collect_label_indices(subdataset))
         return indices
 
+    if hasattr(dataset, "label_to_idx") and hasattr(dataset, "samples"):
+        return [dataset.label_to_idx[sample["label"]] for sample in dataset.samples]
+
+    if hasattr(dataset, "samples") and len(dataset.samples) > 0 and "label_idx" in dataset.samples[0]:
+        return [int(sample["label_idx"]) for sample in dataset.samples]
+
     if hasattr(dataset, "labels"):
         labels = getattr(dataset, "labels")
         if len(labels) > 0:
             first = labels[0]
-            if isinstance(first, (int,)):
-                return [int(x) for x in labels]
-            if hasattr(first, "item"):
+            if isinstance(first, int) or hasattr(first, "item"):
                 return [int(x) for x in labels]
 
     if isinstance(dataset, ExtraPointCloudDataset):
@@ -190,9 +212,154 @@ def get_mixed_scanobjectnn_dataloaders(
     return train_dataset_raw, train_dataset_mild, train_dataset, test_dataset, train_loader, test_loader
 
 
+def resolve_modelnet40_h5_root(root):
+    root = Path(root)
+    candidates = [root, root / "modelnet40_ply_hdf5_2048"]
+    for candidate in candidates:
+        if (candidate / "train_files.txt").exists() and (candidate / "shape_names.txt").exists():
+            return candidate
+
+    if root.exists():
+        for subdir in sorted(path for path in root.rglob("*") if path.is_dir()):
+            if (subdir / "train_files.txt").exists() and (subdir / "shape_names.txt").exists():
+                return subdir
+    raise FileNotFoundError(f"Could not find ModelNet40 h5 root under {root}")
+
+
+def modelnet40_root_looks_like_h5(root):
+    try:
+        resolve_modelnet40_h5_root(root)
+        return True
+    except Exception:
+        return False
+
+
+def read_modelnet40_labels(root):
+    root = Path(root)
+    for candidate in (
+        root / "shape_names.txt",
+        root / "modelnet40_shape_names.txt",
+        root / "labels.txt",
+    ):
+        if candidate.exists():
+            with open(candidate, "r", encoding="utf-8") as handle:
+                labels = [line.strip() for line in handle if line.strip()]
+            if labels:
+                return labels
+    raise FileNotFoundError(f"Could not find ModelNet40 label names under {root}")
+
+
+def load_modelnet40_h5_dataset(root, split, num_points, augment, seed):
+    h5_root = resolve_modelnet40_h5_root(root)
+    labels = read_modelnet40_labels(h5_root)
+    split_filename = "train_files.txt" if split == "train" else "test_files.txt"
+    split_path = h5_root / split_filename
+    if not split_path.exists():
+        raise FileNotFoundError(f"Could not find {split_path}")
+
+    samples = []
+    with open(split_path, "r", encoding="utf-8") as handle:
+        relative_paths = [line.strip() for line in handle if line.strip()]
+
+    for relpath in relative_paths:
+        relpath = relpath.replace("\\", "/")
+        relpath_obj = Path(relpath)
+        candidates = [h5_root / relpath_obj.name, h5_root / relpath_obj]
+        h5_path = next((candidate for candidate in candidates if candidate.exists()), None)
+        if h5_path is None:
+            raise FileNotFoundError(f"Could not find H5 file listed in {split_path}: {relpath}")
+        samples.extend(load_h5_samples(h5_path))
+
+    dataset = H5ClassificationDataset(samples, num_points, labels, augment=augment, seed=seed)
+    return labels, dataset
+
+
+def get_mixed_modelnet40_dataloaders(
+    root,
+    mild_root,
+    batch_size=32,
+    num_points=1024,
+    workers=4,
+    seed=0,
+    sample_method="surface",
+):
+    if modelnet40_root_looks_like_h5(root):
+        labels, train_dataset_raw = load_modelnet40_h5_dataset(
+            root=root,
+            split="train",
+            num_points=num_points,
+            augment=True,
+            seed=seed,
+        )
+        test_labels, test_dataset = load_modelnet40_h5_dataset(
+            root=root,
+            split="test",
+            num_points=num_points,
+            augment=False,
+            seed=seed + 1,
+        )
+    else:
+        train_dataset_raw = ModelNet40Dataset(
+            root=root,
+            split="train",
+            num_points=num_points,
+            normalize=True,
+            augment=True,
+            seed=seed,
+            sample_method=sample_method,
+        )
+        test_dataset = ModelNet40Dataset(
+            root=root,
+            split="test",
+            num_points=num_points,
+            normalize=True,
+            augment=False,
+            seed=seed + 1,
+            sample_method=sample_method,
+        )
+        labels = train_dataset_raw.labels
+        test_labels = test_dataset.labels
+
+    mild_labels, train_dataset_mild = load_modelnet40_h5_dataset(
+        root=mild_root,
+        split="train",
+        num_points=num_points,
+        augment=True,
+        seed=seed + 11,
+    )
+
+    if labels != test_labels:
+        raise ValueError("Raw ModelNet40 train/test labels do not match.")
+    if labels != mild_labels:
+        raise ValueError("Raw ModelNet40 labels do not match processed ModelNet40 labels.")
+
+    train_dataset = ConcatDataset([train_dataset_raw, train_dataset_mild])
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=workers,
+        drop_last=False,
+    )
+    test_loader = torch.utils.data.DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=workers,
+        drop_last=False,
+    )
+    return labels, train_dataset_raw, train_dataset_mild, train_dataset, test_dataset, train_loader, test_loader
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Train a PointMLP classifier on original + mildly processed ScanObjectNN."
+        description="Train a PointMLP classifier on original + mildly processed ScanObjectNN or ModelNet40."
+    )
+    parser.add_argument(
+        "--dataset-type",
+        choices=["scanobjectnn", "modelnet40"],
+        default="scanobjectnn",
+        help="Which dataset family to use for mixed training.",
     )
     parser.add_argument(
         "--scanobjectnn-root",
@@ -210,6 +377,22 @@ def main():
         help="Variant for ScanObjectNN: pb_t50_rs, pb_t50_r, pb_t25, pb_t25_r, obj_bg, obj_only",
     )
     parser.add_argument("--scanobjectnn-no-bg", action="store_true")
+    parser.add_argument(
+        "--modelnet40-root",
+        default=str(TSDF_ROOT / "data" / "ModelNet40"),
+        help="Root directory for the original ModelNet40 dataset.",
+    )
+    parser.add_argument(
+        "--modelnet40-mild-root",
+        default=str(TSDF_ROOT / "data" / "ModelNet40_mild"),
+        help="Root directory for the processed ModelNet40 dataset.",
+    )
+    parser.add_argument(
+        "--modelnet40-sample-method",
+        choices=["surface", "vertex"],
+        default="surface",
+        help="How to sample points when the original ModelNet40 root is OFF-based.",
+    )
     parser.add_argument("--epochs", type=int, default=150)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--num-points", type=int, default=2048)
@@ -259,24 +442,52 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    labels = SCANOBJECTNN_LABELS
-    (
-        train_dataset_raw,
-        train_dataset_mild,
-        train_dataset,
-        test_dataset,
-        train_loader,
-        test_loader,
-    ) = get_mixed_scanobjectnn_dataloaders(
-        root=args.scanobjectnn_root,
-        mild_root=args.scanobjectnn_mild_root,
-        variant=args.scanobjectnn_variant,
-        batch_size=args.batch_size,
-        num_points=args.num_points,
-        workers=args.workers,
-        use_background=not args.scanobjectnn_no_bg,
-        seed=args.seed,
-    )
+    if args.dataset_type == "scanobjectnn":
+        labels = SCANOBJECTNN_LABELS
+        (
+            train_dataset_raw,
+            train_dataset_mild,
+            train_dataset,
+            test_dataset,
+            train_loader,
+            test_loader,
+        ) = get_mixed_scanobjectnn_dataloaders(
+            root=args.scanobjectnn_root,
+            mild_root=args.scanobjectnn_mild_root,
+            variant=args.scanobjectnn_variant,
+            batch_size=args.batch_size,
+            num_points=args.num_points,
+            workers=args.workers,
+            use_background=not args.scanobjectnn_no_bg,
+            seed=args.seed,
+        )
+        dataset_summary = (
+            f"dataset=ScanObjectNN(raw+mild) | variant={args.scanobjectnn_variant} | "
+            f"use_background={not args.scanobjectnn_no_bg}"
+        )
+    else:
+        (
+            labels,
+            train_dataset_raw,
+            train_dataset_mild,
+            train_dataset,
+            test_dataset,
+            train_loader,
+            test_loader,
+        ) = get_mixed_modelnet40_dataloaders(
+            root=args.modelnet40_root,
+            mild_root=args.modelnet40_mild_root,
+            batch_size=args.batch_size,
+            num_points=args.num_points,
+            workers=args.workers,
+            seed=args.seed,
+            sample_method=args.modelnet40_sample_method,
+        )
+        raw_format = "h5" if modelnet40_root_looks_like_h5(args.modelnet40_root) else "off"
+        dataset_summary = (
+            f"dataset=ModelNet40(raw+mild) | raw_format={raw_format} | "
+            f"sample_method={args.modelnet40_sample_method if raw_format == 'off' else 'h5'}"
+        )
 
     if args.extra_train_sample:
         if args.extra_train_label not in labels:
@@ -306,10 +517,7 @@ def main():
             f"repeat={args.extra_train_repeat}"
         )
 
-    print(
-        f"dataset=ScanObjectNN(raw+mild) | variant={args.scanobjectnn_variant} | "
-        f"use_background={not args.scanobjectnn_no_bg}"
-    )
+    print(dataset_summary)
     print(f"raw_train_samples={len(train_dataset_raw)} | mild_train_samples={len(train_dataset_mild)}")
     print(
         f"mixed_train_samples={len(train_dataset)} | test_samples={len(test_dataset)} | "
@@ -421,12 +629,18 @@ def main():
             "model_type": args.model_type,
             "val_acc": val_acc,
             "task": "classification",
-            "dataset": "ScanObjectNN(raw+mild)",
-            "scanobjectnn_variant": args.scanobjectnn_variant,
-            "scanobjectnn_root": str(Path(args.scanobjectnn_root).resolve()),
-            "scanobjectnn_mild_root": str(Path(args.scanobjectnn_mild_root).resolve()),
-            "use_background": not args.scanobjectnn_no_bg,
+            "dataset": f"{args.dataset_type}(raw+mild)",
+            "dataset_type": args.dataset_type,
         }
+        if args.dataset_type == "scanobjectnn":
+            ckpt["scanobjectnn_variant"] = args.scanobjectnn_variant
+            ckpt["scanobjectnn_root"] = str(Path(args.scanobjectnn_root).resolve())
+            ckpt["scanobjectnn_mild_root"] = str(Path(args.scanobjectnn_mild_root).resolve())
+            ckpt["use_background"] = not args.scanobjectnn_no_bg
+        else:
+            ckpt["modelnet40_root"] = str(Path(args.modelnet40_root).resolve())
+            ckpt["modelnet40_mild_root"] = str(Path(args.modelnet40_mild_root).resolve())
+            ckpt["modelnet40_sample_method"] = args.modelnet40_sample_method
         torch.save(ckpt, latest_ckpt_path)
         if val_acc >= best_acc:
             best_acc = val_acc

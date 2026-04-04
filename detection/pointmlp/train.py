@@ -15,11 +15,13 @@ except Exception:
 python detection/pointmlp/train.py
 
 
-python detection/pointmlp/train.py \
-  --use-wandb \
-  --wandb-project TSDF-PointMLP \
-  --wandb-run-name scanobjectnn_pointmlp_run1
-
+python3 detection/pointmlp/train.py \
+  --dataset-type modelnet40 \
+  --modelnet40-root data/ModelNet40 \
+  --extra-object-root data/extra_object \
+  --epochs 150 \
+  --batch-size 16 \
+  --num-points 1024
 '''
 
 
@@ -28,7 +30,12 @@ TSDF_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from TSDF.dataset.extra_object_data import get_scanobjectnn_with_extra_dataloaders
+from TSDF.dataset.extra_object_data import (
+    get_modelnet40_with_extra_dataloaders,
+    get_scanobjectnn_with_extra_dataloaders,
+    modelnet40_root_exists,
+    extra_object_root_exists,
+)
 from TSDF.detection.pointmlp.pointmlp_cls import PointMLPCls
 from TSDF.detection.training_plots import plot_classification_history
 from TSDF.detection.train_pointnet_cls import compute_class_weights, set_seed
@@ -67,7 +74,13 @@ def evaluate(model, dataloader, device, class_weights=None, label_smoothing=0.0)
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Train a PointMLP classifier on ScanObjectNN."
+        description="Train a PointMLP classifier on ScanObjectNN or ModelNet40."
+    )
+    parser.add_argument(
+        "--dataset-type",
+        choices=["auto", "scanobjectnn", "modelnet40"],
+        default="auto",
+        help="auto prefers ScanObjectNN when available and falls back to ModelNet40.",
     )
     parser.add_argument(
         "--scanobjectnn-root",
@@ -89,6 +102,11 @@ def main():
         "--no-extra-object-data",
         action="store_true",
         help="Disable loading extra object samples from --extra-object-root.",
+    )
+    parser.add_argument(
+        "--modelnet40-root",
+        default=str(TSDF_ROOT / "data" / "ModelNet40"),
+        help="ModelNet40 root directory.",
     )
     parser.add_argument("--epochs", type=int, default=150)
     parser.add_argument("--batch-size", type=int, default=4)
@@ -123,23 +141,45 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    labels, train_dataset, test_dataset, train_loader, test_loader = get_scanobjectnn_with_extra_dataloaders(
-        scanobjectnn_root=args.scanobjectnn_root,
-        extra_object_root=args.extra_object_root,
-        variant=args.scanobjectnn_variant,
-        batch_size=args.batch_size,
-        num_points=args.num_points,
-        workers=args.workers,
-        use_background=not args.scanobjectnn_no_bg,
-        seed=args.seed,
-        include_extra=not args.no_extra_object_data,
-    )
+    if args.dataset_type == "auto":
+        dataset_type = "scanobjectnn"
+        if not Path(args.scanobjectnn_root).exists() and modelnet40_root_exists(args.modelnet40_root):
+            dataset_type = "modelnet40"
+    else:
+        dataset_type = args.dataset_type
 
-    print(
-        f"dataset=ScanObjectNN | variant={args.scanobjectnn_variant} | "
-        f"use_background={not args.scanobjectnn_no_bg} | "
-        f"extra_object_root={args.extra_object_root if not args.no_extra_object_data else 'disabled'}"
-    )
+    if dataset_type == "scanobjectnn":
+        labels, train_dataset, test_dataset, train_loader, test_loader = get_scanobjectnn_with_extra_dataloaders(
+            scanobjectnn_root=args.scanobjectnn_root,
+            extra_object_root=args.extra_object_root,
+            variant=args.scanobjectnn_variant,
+            batch_size=args.batch_size,
+            num_points=args.num_points,
+            workers=args.workers,
+            use_background=not args.scanobjectnn_no_bg,
+            seed=args.seed,
+            include_extra=not args.no_extra_object_data,
+        )
+        print(
+            f"dataset=ScanObjectNN | variant={args.scanobjectnn_variant} | "
+            f"use_background={not args.scanobjectnn_no_bg} | "
+            f"extra_object_root={args.extra_object_root if not args.no_extra_object_data else 'disabled'}"
+        )
+    else:
+        labels, train_dataset, test_dataset, train_loader, test_loader = get_modelnet40_with_extra_dataloaders(
+            modelnet40_root=args.modelnet40_root,
+            extra_object_root=args.extra_object_root,
+            batch_size=args.batch_size,
+            num_points=args.num_points,
+            workers=args.workers,
+            seed=args.seed,
+            include_extra=not args.no_extra_object_data,
+        )
+        print(
+            f"dataset=ModelNet40 | "
+            f"extra_object_root={args.extra_object_root if not args.no_extra_object_data else 'disabled'} | "
+            f"extra_object_exists={extra_object_root_exists(args.extra_object_root)}"
+        )
     print(
         f"train_samples={len(train_dataset)} | test_samples={len(test_dataset)} | "
         f"num_classes={len(labels)}"
@@ -250,7 +290,7 @@ def main():
             "model_type": args.model_type,
             "val_acc": val_acc,
             "task": "classification",
-            "dataset": "ScanObjectNN",
+            "dataset": "ScanObjectNN" if dataset_type == "scanobjectnn" else "ModelNet40",
             "scanobjectnn_variant": args.scanobjectnn_variant,
             "use_background": not args.scanobjectnn_no_bg,
         }

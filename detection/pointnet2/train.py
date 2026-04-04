@@ -18,15 +18,26 @@ from torch.utils.data import DataLoader, Dataset
 #   --batch-size 16 \
 #   --num-points 1024
 
+'''
 
+python3 detection/pointnet2/train.py \
+  --dataset-type modelnet40 \
+  --modelnet40-root data/ModelNet40 \
+  --extra-object-root data/extra_object \
+  --epochs 150 \
+  --batch-size 16 \
+  --num-points 1024
+'''
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TSDF_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from TSDF.dataset.extra_object_data import get_scanobjectnn_with_extra_dataloaders
-from TSDF.dataset.scanobjectnn_data import SCANOBJECTNN_LABELS
+from TSDF.dataset.extra_object_data import (
+    get_modelnet40_with_extra_dataloaders,
+    get_scanobjectnn_with_extra_dataloaders,
+)
 from TSDF.detection.pointnet2.pointnet2 import PointNet2ClsSSG
 from TSDF.detection.training_plots import plot_classification_history
 
@@ -462,55 +473,18 @@ def main():
             f"{args.extra_object_root if not args.no_extra_object_data else 'disabled'}"
         )
     else:
-        modelnet_root = Path(args.modelnet40_root)
-        h5_ready = (
-            (modelnet_root / "modelnet40_ply_hdf5_2048" / "train_files.txt").exists()
-            or (modelnet_root / "train_files.txt").exists()
-        )
-        if h5_ready:
-            train_dataset = ModelNet40H5Dataset(
-                root=args.modelnet40_root,
-                split="train",
-                num_points=args.num_points,
-                augment=True,
-                seed=args.seed,
-            )
-            test_dataset = ModelNet40H5Dataset(
-                root=args.modelnet40_root,
-                split="test",
-                num_points=args.num_points,
-                augment=False,
-                seed=args.seed + 1,
-            )
-        else:
-            train_dataset = ModelNet40OffDataset(
-                root=args.modelnet40_root,
-                split="train",
-                num_points=args.num_points,
-                augment=True,
-                seed=args.seed,
-            )
-            test_dataset = ModelNet40OffDataset(
-                root=args.modelnet40_root,
-                split="test",
-                num_points=args.num_points,
-                augment=False,
-                seed=args.seed + 1,
-            )
-        labels = train_dataset.labels
-        train_loader = DataLoader(
-            train_dataset,
+        labels, train_dataset, test_dataset, train_loader, test_loader = get_modelnet40_with_extra_dataloaders(
+            modelnet40_root=args.modelnet40_root,
+            extra_object_root=args.extra_object_root,
             batch_size=args.batch_size,
-            shuffle=True,
-            num_workers=args.workers,
-            drop_last=False,
+            num_points=args.num_points,
+            workers=args.workers,
+            seed=args.seed,
+            include_extra=not args.no_extra_object_data,
         )
-        test_loader = DataLoader(
-            test_dataset,
-            batch_size=args.batch_size,
-            shuffle=False,
-            num_workers=args.workers,
-            drop_last=False,
+        print(
+            f"modelnet40_extra_object_root="
+            f"{args.extra_object_root if not args.no_extra_object_data else 'disabled'}"
         )
 
     print(f"train_samples={len(train_dataset)} | val_samples={len(test_dataset)} | num_classes={len(labels)}")

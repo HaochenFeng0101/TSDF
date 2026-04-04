@@ -22,6 +22,20 @@ ITERS=3
 GEOMETRIC_ITERS=2
 MAX_THREADS=0
 REMOVE_DMAPS=1
+RECONSTRUCT=1
+REFINE=1
+TEXTURE=1
+MESH_DECIMATE=1
+MESH_REMOVE_SPURIOUS=20
+MESH_CLOSE_HOLES=30
+MESH_SMOOTH=2
+FREE_SPACE_SUPPORT=1
+REFINE_SCALES=3
+REFINE_MAX_VIEWS=8
+TEXTURE_MAX_SIZE=8192
+TEXTURE_VIRTUAL_FACE_IMAGES=3
+EXPORT_STAGE_PCD=1
+STAGE_PCD_POINTS=500000
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -93,6 +107,62 @@ while [[ $# -gt 0 ]]; do
       REMOVE_DMAPS=0
       shift
       ;;
+    --skip-reconstruct)
+      RECONSTRUCT=0
+      shift
+      ;;
+    --skip-refine)
+      REFINE=0
+      shift
+      ;;
+    --skip-texture)
+      TEXTURE=0
+      shift
+      ;;
+    --mesh-decimate)
+      MESH_DECIMATE="$2"
+      shift 2
+      ;;
+    --mesh-remove-spurious)
+      MESH_REMOVE_SPURIOUS="$2"
+      shift 2
+      ;;
+    --mesh-close-holes)
+      MESH_CLOSE_HOLES="$2"
+      shift 2
+      ;;
+    --mesh-smooth)
+      MESH_SMOOTH="$2"
+      shift 2
+      ;;
+    --free-space-support)
+      FREE_SPACE_SUPPORT="$2"
+      shift 2
+      ;;
+    --refine-scales)
+      REFINE_SCALES="$2"
+      shift 2
+      ;;
+    --refine-max-views)
+      REFINE_MAX_VIEWS="$2"
+      shift 2
+      ;;
+    --texture-max-size)
+      TEXTURE_MAX_SIZE="$2"
+      shift 2
+      ;;
+    --texture-virtual-face-images)
+      TEXTURE_VIRTUAL_FACE_IMAGES="$2"
+      shift 2
+      ;;
+    --no-stage-pcd)
+      EXPORT_STAGE_PCD=0
+      shift
+      ;;
+    --stage-pcd-points)
+      STAGE_PCD_POINTS="$2"
+      shift 2
+      ;;
     --help|-h)
       cat <<'EOF'
 Usage:
@@ -116,6 +186,20 @@ Options:
   --geometric-iters N
   --max-threads N
   --keep-dmaps
+  --skip-reconstruct
+  --skip-refine
+  --skip-texture
+  --mesh-decimate FLOAT
+  --mesh-remove-spurious N
+  --mesh-close-holes N
+  --mesh-smooth N
+  --free-space-support 0|1
+  --refine-scales N
+  --refine-max-views N
+  --texture-max-size N
+  --texture-virtual-face-images N
+  --no-stage-pcd
+  --stage-pcd-points N
 
 Examples:
   bash openmvs/run_openmvs_tum.sh --workspace-name fr3_office_openmvs
@@ -147,6 +231,9 @@ mkdir -p "${LOG_ROOT}"
 RUN_STAMP="$(date +%Y%m%d_%H%M%S)"
 INTERFACE_STDOUT_LOG="${LOG_ROOT}/${RUN_STAMP}_interfacecolmap.stdout.log"
 DENSIFY_STDOUT_LOG="${LOG_ROOT}/${RUN_STAMP}_densifypointcloud.stdout.log"
+RECONSTRUCT_STDOUT_LOG="${LOG_ROOT}/${RUN_STAMP}_reconstructmesh.stdout.log"
+REFINE_STDOUT_LOG="${LOG_ROOT}/${RUN_STAMP}_refinemesh.stdout.log"
+TEXTURE_STDOUT_LOG="${LOG_ROOT}/${RUN_STAMP}_texturemesh.stdout.log"
 
 if [[ -z "${OPENMVS_BIN_DIR}" ]]; then
   if [[ -d "${TSDF_ROOT}/openmvs/OpenMVS/build/bin" ]]; then
@@ -167,6 +254,9 @@ fi
 
 INTERFACE_COLMAP="${OPENMVS_BIN_DIR}/InterfaceCOLMAP"
 DENSIFY_POINTCLOUD="${OPENMVS_BIN_DIR}/DensifyPointCloud"
+RECONSTRUCT_MESH="${OPENMVS_BIN_DIR}/ReconstructMesh"
+REFINE_MESH="${OPENMVS_BIN_DIR}/RefineMesh"
+TEXTURE_MESH="${OPENMVS_BIN_DIR}/TextureMesh"
 
 if [[ ! -x "${INTERFACE_COLMAP}" || ! -x "${DENSIFY_POINTCLOUD}" ]]; then
   echo "OpenMVS executables are incomplete: ${OPENMVS_BIN_DIR}"
@@ -179,6 +269,26 @@ SPARSE_DIR="${COLMAP_DIR}/sparse"
 IMAGES_DIR="${WORKSPACE_DIR}/images"
 SCENE_MVS="${WORKSPACE_DIR}/scene.mvs"
 DENSE_MVS="${WORKSPACE_DIR}/scene_dense.mvs"
+DENSE_PLY="${WORKSPACE_DIR}/scene_dense.ply"
+MESH_PLY="${WORKSPACE_DIR}/scene_mesh.ply"
+REFINE_PLY="${WORKSPACE_DIR}/scene_mesh_refine.ply"
+TEXTURE_PLY="${WORKSPACE_DIR}/scene_mesh_refine_texture.ply"
+SEED_PLY="${WORKSPACE_DIR}/seed_from_depth.ply"
+
+export_stage_pcd() {
+  local input_ply="$1"
+  local output_pcd="$2"
+  if [[ "${EXPORT_STAGE_PCD}" -ne 1 ]]; then
+    return 0
+  fi
+  if [[ ! -f "${input_ply}" ]]; then
+    return 0
+  fi
+  python3 "${SCRIPT_DIR}/export_stage_pcd.py" \
+    "${input_ply}" \
+    "${output_pcd}" \
+    --sample-points "${STAGE_PCD_POINTS}"
+}
 
 if [[ "${REEXPORT}" -eq 1 || ! -d "${SPARSE_DIR}" || ! -d "${IMAGES_DIR}" ]]; then
   if [[ "${REEXPORT}" -eq 1 ]]; then
@@ -231,6 +341,68 @@ echo "2/2 Running DensifyPointCloud"
   --max-threads "${MAX_THREADS}" \
   2>&1 | tee "${DENSIFY_STDOUT_LOG}"
 
+export_stage_pcd "${SEED_PLY}" "${WORKSPACE_DIR}/seed_from_depth.pcd"
+export_stage_pcd "${DENSE_PLY}" "${WORKSPACE_DIR}/scene_dense.pcd"
+
+if [[ "${RECONSTRUCT}" -eq 1 ]]; then
+  echo "3/5 Running ReconstructMesh"
+  "${RECONSTRUCT_MESH}" \
+    -i "${DENSE_MVS}" \
+    -p "${DENSE_PLY}" \
+    -o "${MESH_PLY}" \
+    --working-folder "${WORKSPACE_DIR}" \
+    --free-space-support "${FREE_SPACE_SUPPORT}" \
+    --decimate "${MESH_DECIMATE}" \
+    --remove-spurious "${MESH_REMOVE_SPURIOUS}" \
+    --close-holes "${MESH_CLOSE_HOLES}" \
+    --smooth "${MESH_SMOOTH}" \
+    --max-threads "${MAX_THREADS}" \
+    2>&1 | tee "${RECONSTRUCT_STDOUT_LOG}"
+
+  export_stage_pcd "${MESH_PLY}" "${WORKSPACE_DIR}/scene_mesh.pcd"
+fi
+
+if [[ "${REFINE}" -eq 1 && -f "${MESH_PLY}" ]]; then
+  echo "4/5 Running RefineMesh"
+  "${REFINE_MESH}" \
+    -i "${DENSE_MVS}" \
+    -m "${MESH_PLY}" \
+    -o "${REFINE_PLY}" \
+    --working-folder "${WORKSPACE_DIR}" \
+    --resolution-level "${RESOLUTION_LEVEL}" \
+    --min-resolution "${MIN_RESOLUTION}" \
+    --max-views "${REFINE_MAX_VIEWS}" \
+    --scales "${REFINE_SCALES}" \
+    --close-holes "${MESH_CLOSE_HOLES}" \
+    --max-threads "${MAX_THREADS}" \
+    2>&1 | tee "${REFINE_STDOUT_LOG}"
+
+  export_stage_pcd "${REFINE_PLY}" "${WORKSPACE_DIR}/scene_mesh_refine.pcd"
+fi
+
+if [[ "${TEXTURE}" -eq 1 ]]; then
+  TEXTURE_INPUT_MESH="${REFINE_PLY}"
+  if [[ ! -f "${TEXTURE_INPUT_MESH}" ]]; then
+    TEXTURE_INPUT_MESH="${MESH_PLY}"
+  fi
+  if [[ -f "${TEXTURE_INPUT_MESH}" ]]; then
+    echo "5/5 Running TextureMesh"
+    "${TEXTURE_MESH}" \
+      -i "${DENSE_MVS}" \
+      -m "${TEXTURE_INPUT_MESH}" \
+      -o "${TEXTURE_PLY}" \
+      --working-folder "${WORKSPACE_DIR}" \
+      --resolution-level "${RESOLUTION_LEVEL}" \
+      --min-resolution "${MIN_RESOLUTION}" \
+      --virtual-face-images "${TEXTURE_VIRTUAL_FACE_IMAGES}" \
+      --max-texture-size "${TEXTURE_MAX_SIZE}" \
+      --max-threads "${MAX_THREADS}" \
+      2>&1 | tee "${TEXTURE_STDOUT_LOG}"
+
+    export_stage_pcd "${TEXTURE_PLY}" "${WORKSPACE_DIR}/scene_mesh_refine_texture.pcd"
+  fi
+fi
+
 popd >/dev/null
 
 echo "OpenMVS finished. Generated files in workspace:"
@@ -239,3 +411,12 @@ echo "Workspace directory: ${WORKSPACE_DIR}"
 echo "Run logs:"
 echo "  ${INTERFACE_STDOUT_LOG}"
 echo "  ${DENSIFY_STDOUT_LOG}"
+if [[ -f "${RECONSTRUCT_STDOUT_LOG}" ]]; then
+  echo "  ${RECONSTRUCT_STDOUT_LOG}"
+fi
+if [[ -f "${REFINE_STDOUT_LOG}" ]]; then
+  echo "  ${REFINE_STDOUT_LOG}"
+fi
+if [[ -f "${TEXTURE_STDOUT_LOG}" ]]; then
+  echo "  ${TEXTURE_STDOUT_LOG}"
+fi

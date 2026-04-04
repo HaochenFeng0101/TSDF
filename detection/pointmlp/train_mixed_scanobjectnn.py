@@ -5,7 +5,7 @@ from pathlib import Path
 
 import torch
 import torch.nn.functional as F
-from torch.utils.data import ConcatDataset, Dataset
+from torch.utils.data import ConcatDataset, Dataset, Subset
 
 try:
     from tqdm import tqdm
@@ -19,6 +19,7 @@ python detection/pointmlp/train_mixed_scanobjectnn.py `
   --scanobjectnn-root data/ScanObjectNN `
   --scanobjectnn-mild-root data/ScanObjectNN_mild `
   --scanobjectnn-variant pb_t50_rs `
+  --mild-ratio-denominator 5 `
   --batch-size 4 `
   --num-points 2048 `
   --amp `
@@ -108,6 +109,10 @@ def collect_label_indices(dataset):
             indices.extend(collect_label_indices(subdataset))
         return indices
 
+    if isinstance(dataset, Subset):
+        subset_labels = collect_label_indices(dataset.dataset)
+        return [subset_labels[int(i)] for i in dataset.indices]
+
     if hasattr(dataset, "labels"):
         labels = getattr(dataset, "labels")
         if len(labels) > 0:
@@ -131,6 +136,14 @@ def compute_class_weights_for_dataset(dataset, num_classes, device):
     return weights.to(device)
 
 
+def sample_mild_dataset(dataset, target_size, seed):
+    if target_size >= len(dataset):
+        return dataset
+    generator = torch.Generator().manual_seed(seed)
+    indices = torch.randperm(len(dataset), generator=generator)[:target_size].tolist()
+    return Subset(dataset, indices)
+
+
 def get_mixed_scanobjectnn_dataloaders(
     root,
     mild_root,
@@ -140,6 +153,7 @@ def get_mixed_scanobjectnn_dataloaders(
     workers=4,
     use_background=True,
     seed=0,
+    mild_ratio_denominator=5,
 ):
     train_dataset_raw = ScanObjectNNDataset(
         root=root,
@@ -151,7 +165,7 @@ def get_mixed_scanobjectnn_dataloaders(
         augment=True,
         seed=seed,
     )
-    train_dataset_mild = ScanObjectNNDataset(
+    train_dataset_mild_full = ScanObjectNNDataset(
         root=mild_root,
         split="train",
         variant=variant,
@@ -172,6 +186,13 @@ def get_mixed_scanobjectnn_dataloaders(
         seed=seed + 1,
     )
 
+    target_mild_size = max(1, len(train_dataset_raw) // max(int(mild_ratio_denominator), 1))
+    train_dataset_mild = sample_mild_dataset(
+        train_dataset_mild_full,
+        target_size=min(target_mild_size, len(train_dataset_mild_full)),
+        seed=seed + 23,
+    )
+
     train_dataset = ConcatDataset([train_dataset_raw, train_dataset_mild])
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -187,12 +208,20 @@ def get_mixed_scanobjectnn_dataloaders(
         num_workers=workers,
         drop_last=False,
     )
-    return train_dataset_raw, train_dataset_mild, train_dataset, test_dataset, train_loader, test_loader
+    return (
+        train_dataset_raw,
+        train_dataset_mild_full,
+        train_dataset_mild,
+        train_dataset,
+        test_dataset,
+        train_loader,
+        test_loader,
+    )
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Train a PointMLP classifier on original + mildly processed ScanObjectNN."
+        description="Train a PointMLP classifier on original + sampled mildly processed ScanObjectNN."
     )
     parser.add_argument(
         "--scanobjectnn-root",
@@ -210,6 +239,12 @@ def main():
         help="Variant for ScanObjectNN: pb_t50_rs, pb_t50_r, pb_t25, pb_t25_r, obj_bg, obj_only",
     )
     parser.add_argument("--scanobjectnn-no-bg", action="store_true")
+    parser.add_argument(
+        "--mild-ratio-denominator",
+        type=int,
+        default=5,
+        help="Target raw:mild ratio denominator. 5 means use about raw/5 mild samples, i.e. about 5:1.",
+    )
     parser.add_argument("--epochs", type=int, default=150)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--num-points", type=int, default=2048)
@@ -262,6 +297,7 @@ def main():
     labels = SCANOBJECTNN_LABELS
     (
         train_dataset_raw,
+        train_dataset_mild_full,
         train_dataset_mild,
         train_dataset,
         test_dataset,
@@ -276,6 +312,7 @@ def main():
         workers=args.workers,
         use_background=not args.scanobjectnn_no_bg,
         seed=args.seed,
+        mild_ratio_denominator=args.mild_ratio_denominator,
     )
 
     if args.extra_train_sample:
@@ -307,13 +344,16 @@ def main():
         )
 
     print(
-        f"dataset=ScanObjectNN(raw+mild) | variant={args.scanobjectnn_variant} | "
+        f"dataset=ScanObjectNN(raw+sampled_mild) | variant={args.scanobjectnn_variant} | "
         f"use_background={not args.scanobjectnn_no_bg}"
     )
-    print(f"raw_train_samples={len(train_dataset_raw)} | mild_train_samples={len(train_dataset_mild)}")
+    print(
+        f"raw_train_samples={len(train_dataset_raw)} | mild_full_samples={len(train_dataset_mild_full)} | "
+        f"sampled_mild_samples={len(train_dataset_mild)}"
+    )
     print(
         f"mixed_train_samples={len(train_dataset)} | test_samples={len(test_dataset)} | "
-        f"num_classes={len(labels)}"
+        f"num_classes={len(labels)} | target_ratio={args.mild_ratio_denominator}:1(raw:mild denominator)"
     )
 
     labels_path = output_dir / "labels.txt"
@@ -421,10 +461,11 @@ def main():
             "model_type": args.model_type,
             "val_acc": val_acc,
             "task": "classification",
-            "dataset": "ScanObjectNN(raw+mild)",
+            "dataset": "ScanObjectNN(raw+sampled_mild)",
             "scanobjectnn_variant": args.scanobjectnn_variant,
             "scanobjectnn_root": str(Path(args.scanobjectnn_root).resolve()),
             "scanobjectnn_mild_root": str(Path(args.scanobjectnn_mild_root).resolve()),
+            "mild_ratio_denominator": args.mild_ratio_denominator,
             "use_background": not args.scanobjectnn_no_bg,
         }
         torch.save(ckpt, latest_ckpt_path)

@@ -11,4 +11,24 @@ openmvs/outputs/*
 !openmvs/outputs/.gitkeep
 openmvs/_build/
 openmvs/_install/
+<<<<<<< HEAD
 mask_generation/outputs/*
+=======
+
+seg_model/
+model/**/*.pth
+model/**/*_weights.pth
+model/**/train_metrics.json
+model/**/training_curves.png
+model/**/training_curves.pdf
+model/**/iou_curves.png
+model/**/iou_curves.pdf
+
+model/pointmlp/*.pth
+model/pointmlp/train_metrics.json
+
+
+
+ 
+/yolov8x-seg.pt
+>>>>>>> upstream/main

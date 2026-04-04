@@ -1,0 +1,3 @@
+mask_track_000.pcd frames_used=181 points=208599 mask_list=mask_track_000.txt
+mask_track_002.pcd frames_used=333 points=96960 mask_list=mask_track_002.txt
+mask_track_006.pcd frames_used=270 points=97608 mask_list=mask_track_006.txt

@@ -16,14 +16,13 @@ except Exception:
 python detection/pointmlp/train.py
 
 
-python detection/pointmlp/train.py \
-  --scanobjectnn-root data/ScanObjectNN \
-  --scanobjectnn-variant pb_t50_rs \
-  --batch-size 4 \
-  --num-points 2048 \
-  --amp \
-  --use-class-weights
-
+python3 detection/pointmlp/train.py \
+  --dataset-type modelnet40 \
+  --modelnet40-root data/ModelNet40 \
+  --extra-object-root data/extra_object \
+  --epochs 150 \
+  --batch-size 16 \
+  --num-points 1024
 '''
 
 
@@ -32,9 +31,19 @@ TSDF_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from TSDF.dataset.scanobjectnn_data import SCANOBJECTNN_LABELS, get_scanobjectnn_dataloaders
+from TSDF.dataset.extra_object_data import (
+    get_modelnet40_with_extra_dataloaders,
+    get_scanobjectnn_with_extra_dataloaders,
+    modelnet40_root_exists,
+    extra_object_root_exists,
+)
 from TSDF.detection.pointmlp.pointmlp_cls import PointMLPCls
+<<<<<<< HEAD
 from TSDF.detection.train_pointnet_cls import load_point_cloud_file, set_seed
+=======
+from TSDF.detection.training_plots import plot_classification_history
+from TSDF.detection.train_pointnet_cls import compute_class_weights, set_seed
+>>>>>>> upstream/main
 
 try:
     import wandb
@@ -134,7 +143,13 @@ def compute_class_weights_for_dataset(dataset, num_classes, device):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Train a PointMLP classifier on ScanObjectNN."
+        description="Train a PointMLP classifier on ScanObjectNN or ModelNet40."
+    )
+    parser.add_argument(
+        "--dataset-type",
+        choices=["auto", "scanobjectnn", "modelnet40"],
+        default="auto",
+        help="auto prefers ScanObjectNN when available and falls back to ModelNet40.",
     )
     parser.add_argument(
         "--scanobjectnn-root",
@@ -147,6 +162,21 @@ def main():
         help="Variant for ScanObjectNN: pb_t50_rs, pb_t50_r, pb_t25, pb_t25_r, obj_bg, obj_only",
     )
     parser.add_argument("--scanobjectnn-no-bg", action="store_true")
+    parser.add_argument(
+        "--extra-object-root",
+        default=str(TSDF_ROOT / "data" / "extra_object"),
+        help="Optional extra object directory. Class names are inferred from folder names and are included by default if the directory exists.",
+    )
+    parser.add_argument(
+        "--no-extra-object-data",
+        action="store_true",
+        help="Disable loading extra object samples from --extra-object-root.",
+    )
+    parser.add_argument(
+        "--modelnet40-root",
+        default=str(TSDF_ROOT / "data" / "ModelNet40"),
+        help="ModelNet40 root directory.",
+    )
     parser.add_argument("--epochs", type=int, default=150)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--num-points", type=int, default=2048)
@@ -196,17 +226,14 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    labels = SCANOBJECTNN_LABELS
-    train_dataset, test_dataset, train_loader, test_loader = get_scanobjectnn_dataloaders(
-        root=args.scanobjectnn_root,
-        variant=args.scanobjectnn_variant,
-        batch_size=args.batch_size,
-        num_points=args.num_points,
-        workers=args.workers,
-        use_background=not args.scanobjectnn_no_bg,
-        seed=args.seed,
-    )
+    if args.dataset_type == "auto":
+        dataset_type = "scanobjectnn"
+        if not Path(args.scanobjectnn_root).exists() and modelnet40_root_exists(args.modelnet40_root):
+            dataset_type = "modelnet40"
+    else:
+        dataset_type = args.dataset_type
 
+<<<<<<< HEAD
     if args.extra_train_sample:
         if args.extra_train_label not in labels:
             raise ValueError(
@@ -239,6 +266,40 @@ def main():
         f"dataset=ScanObjectNN | variant={args.scanobjectnn_variant} | "
         f"use_background={not args.scanobjectnn_no_bg}"
     )
+=======
+    if dataset_type == "scanobjectnn":
+        labels, train_dataset, test_dataset, train_loader, test_loader = get_scanobjectnn_with_extra_dataloaders(
+            scanobjectnn_root=args.scanobjectnn_root,
+            extra_object_root=args.extra_object_root,
+            variant=args.scanobjectnn_variant,
+            batch_size=args.batch_size,
+            num_points=args.num_points,
+            workers=args.workers,
+            use_background=not args.scanobjectnn_no_bg,
+            seed=args.seed,
+            include_extra=not args.no_extra_object_data,
+        )
+        print(
+            f"dataset=ScanObjectNN | variant={args.scanobjectnn_variant} | "
+            f"use_background={not args.scanobjectnn_no_bg} | "
+            f"extra_object_root={args.extra_object_root if not args.no_extra_object_data else 'disabled'}"
+        )
+    else:
+        labels, train_dataset, test_dataset, train_loader, test_loader = get_modelnet40_with_extra_dataloaders(
+            modelnet40_root=args.modelnet40_root,
+            extra_object_root=args.extra_object_root,
+            batch_size=args.batch_size,
+            num_points=args.num_points,
+            workers=args.workers,
+            seed=args.seed,
+            include_extra=not args.no_extra_object_data,
+        )
+        print(
+            f"dataset=ModelNet40 | "
+            f"extra_object_root={args.extra_object_root if not args.no_extra_object_data else 'disabled'} | "
+            f"extra_object_exists={extra_object_root_exists(args.extra_object_root)}"
+        )
+>>>>>>> upstream/main
     print(
         f"train_samples={len(train_dataset)} | test_samples={len(test_dataset)} | "
         f"num_classes={len(labels)}"
@@ -349,7 +410,7 @@ def main():
             "model_type": args.model_type,
             "val_acc": val_acc,
             "task": "classification",
-            "dataset": "ScanObjectNN",
+            "dataset": "ScanObjectNN" if dataset_type == "scanobjectnn" else "ModelNet40",
             "scanobjectnn_variant": args.scanobjectnn_variant,
             "use_background": not args.scanobjectnn_no_bg,
         }
@@ -361,17 +422,28 @@ def main():
     metrics_path = output_dir / "train_metrics.json"
     with open(metrics_path, "w", encoding="utf-8") as handle:
         json.dump(history, handle, indent=2)
+    plot_paths = plot_classification_history(output_dir, history, "PointMLP Classification")
 
     if args.use_wandb:
         wandb.summary["best_checkpoint"] = str(best_ckpt_path)
         wandb.summary["labels_path"] = str(labels_path)
         wandb.summary["metrics_path"] = str(metrics_path)
         wandb.summary["best_val_acc"] = best_acc
+        wandb.summary["plot_paths"] = [str(path) for path in plot_paths]
+        image_logs = {
+            f"plot/{Path(path).stem}": wandb.Image(str(path))
+            for path in plot_paths
+            if Path(path).suffix.lower() == ".png"
+        }
+        if image_logs:
+            wandb.log(image_logs)
         wandb.finish()
 
     print(f"best checkpoint: {best_ckpt_path}")
     print(f"labels file: {labels_path}")
     print(f"metrics: {metrics_path}")
+    for plot_path in plot_paths:
+        print(f"plot: {plot_path}")
 
 
 if __name__ == "__main__":

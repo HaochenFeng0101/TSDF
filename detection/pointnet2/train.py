@@ -18,15 +18,28 @@ from torch.utils.data import DataLoader, Dataset
 #   --batch-size 16 \
 #   --num-points 1024
 
+'''
 
+python3 detection/pointnet2/train.py \
+  --dataset-type modelnet40 \
+  --modelnet40-root data/ModelNet40 \
+  --extra-object-root data/extra_object \
+  --epochs 150 \
+  --batch-size 16 \
+  --num-points 1024
+'''
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TSDF_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from TSDF.dataset.scanobjectnn_data import SCANOBJECTNN_LABELS, get_scanobjectnn_dataloaders
+from TSDF.dataset.extra_object_data import (
+    get_modelnet40_with_extra_dataloaders,
+    get_scanobjectnn_with_extra_dataloaders,
+)
 from TSDF.detection.pointnet2.pointnet2 import PointNet2ClsSSG
+from TSDF.detection.training_plots import plot_classification_history
 
 try:
     import h5py
@@ -440,6 +453,16 @@ def main():
         help="Use the no-background split.",
     )
     parser.add_argument(
+        "--extra-object-root",
+        default=str(TSDF_ROOT / "data" / "extra_object"),
+        help="Optional extra object directory. Class names are inferred from folder names and are included by default if the directory exists.",
+    )
+    parser.add_argument(
+        "--no-extra-object-data",
+        action="store_true",
+        help="Disable loading extra object samples from --extra-object-root.",
+    )
+    parser.add_argument(
         "--modelnet40-root",
         default=str(TSDF_ROOT / "data" / "ModelNet40"),
         help="ModelNet40 root directory.",
@@ -473,66 +496,34 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if dataset_type == "scanobjectnn":
-        labels = SCANOBJECTNN_LABELS
-        train_dataset, test_dataset, train_loader, test_loader = get_scanobjectnn_dataloaders(
-            root=args.scanobjectnn_root,
+        labels, train_dataset, test_dataset, train_loader, test_loader = get_scanobjectnn_with_extra_dataloaders(
+            scanobjectnn_root=args.scanobjectnn_root,
+            extra_object_root=args.extra_object_root,
             variant=args.scanobjectnn_variant,
             batch_size=args.batch_size,
             num_points=args.num_points,
             workers=args.workers,
             use_background=not args.scanobjectnn_no_bg,
             seed=args.seed,
+            include_extra=not args.no_extra_object_data,
+        )
+        print(
+            f"scanobjectnn_extra_object_root="
+            f"{args.extra_object_root if not args.no_extra_object_data else 'disabled'}"
         )
     else:
-        modelnet_root = Path(args.modelnet40_root)
-        h5_ready = (
-            (modelnet_root / "modelnet40_ply_hdf5_2048" / "train_files.txt").exists()
-            or (modelnet_root / "train_files.txt").exists()
-        )
-        if h5_ready:
-            train_dataset = ModelNet40H5Dataset(
-                root=args.modelnet40_root,
-                split="train",
-                num_points=args.num_points,
-                augment=True,
-                seed=args.seed,
-            )
-            test_dataset = ModelNet40H5Dataset(
-                root=args.modelnet40_root,
-                split="test",
-                num_points=args.num_points,
-                augment=False,
-                seed=args.seed + 1,
-            )
-        else:
-            train_dataset = ModelNet40OffDataset(
-                root=args.modelnet40_root,
-                split="train",
-                num_points=args.num_points,
-                augment=True,
-                seed=args.seed,
-            )
-            test_dataset = ModelNet40OffDataset(
-                root=args.modelnet40_root,
-                split="test",
-                num_points=args.num_points,
-                augment=False,
-                seed=args.seed + 1,
-            )
-        labels = train_dataset.labels
-        train_loader = DataLoader(
-            train_dataset,
+        labels, train_dataset, test_dataset, train_loader, test_loader = get_modelnet40_with_extra_dataloaders(
+            modelnet40_root=args.modelnet40_root,
+            extra_object_root=args.extra_object_root,
             batch_size=args.batch_size,
-            shuffle=True,
-            num_workers=args.workers,
-            drop_last=False,
+            num_points=args.num_points,
+            workers=args.workers,
+            seed=args.seed,
+            include_extra=not args.no_extra_object_data,
         )
-        test_loader = DataLoader(
-            test_dataset,
-            batch_size=args.batch_size,
-            shuffle=False,
-            num_workers=args.workers,
-            drop_last=False,
+        print(
+            f"modelnet40_extra_object_root="
+            f"{args.extra_object_root if not args.no_extra_object_data else 'disabled'}"
         )
 
     print(f"train_samples={len(train_dataset)} | val_samples={len(test_dataset)} | num_classes={len(labels)}")
@@ -665,15 +656,32 @@ def main():
                 }
             )
 
-    with open(output_dir / "train_metrics.json", "w", encoding="utf-8") as handle:
+    metrics_path = output_dir / "train_metrics.json"
+    with open(metrics_path, "w", encoding="utf-8") as handle:
         json.dump(history, handle, indent=2)
+    plot_paths = plot_classification_history(output_dir, history, "PointNet2 Classification")
 
     print(f"Training finished. Best val_acc={best_acc:.4f}")
     print(f"Best checkpoint: {best_ckpt_path}")
     print(f"Last checkpoint: {latest_ckpt_path}")
     print(f"Labels file: {labels_path}")
+    print(f"Metrics file: {metrics_path}")
+    for plot_path in plot_paths:
+        print(f"plot: {plot_path}")
 
     if args.use_wandb:
+        wandb.summary["best_checkpoint"] = str(best_ckpt_path)
+        wandb.summary["labels_path"] = str(labels_path)
+        wandb.summary["best_val_acc"] = best_acc
+        wandb.summary["metrics_path"] = str(metrics_path)
+        wandb.summary["plot_paths"] = [str(path) for path in plot_paths]
+        image_logs = {
+            f"plot/{Path(path).stem}": wandb.Image(str(path))
+            for path in plot_paths
+            if Path(path).suffix.lower() == ".png"
+        }
+        if image_logs:
+            wandb.log(image_logs)
         wandb.finish()
 
 

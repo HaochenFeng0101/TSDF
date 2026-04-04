@@ -1,0 +1,1073 @@
+{
+  "checkpoint": "F:\\NUS\\Sem2\\ME6402\\TSDF\\model\\pointmlp\\pointmlp_best_weights.pth",
+  "labels_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\model\\pointmlp\\labels.txt",
+  "input_root": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object",
+  "output_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\pointmlp_scores.json",
+  "device": "cpu",
+  "model_type": "pointmlp",
+  "num_points": 2048,
+  "num_votes": 10,
+  "use_all_points": false,
+  "label_space": [
+    "bag",
+    "bin",
+    "box",
+    "cabinet",
+    "chair",
+    "desk",
+    "display",
+    "door",
+    "shelf",
+    "table",
+    "bed",
+    "pillow",
+    "sink",
+    "sofa",
+    "toilet"
+  ],
+  "source_categories": [
+    "book",
+    "chair",
+    "teddy_bear",
+    "tv"
+  ],
+  "source_categories_in_label_space": [
+    "chair"
+  ],
+  "source_categories_outside_label_space": [
+    "book",
+    "teddy_bear",
+    "tv"
+  ],
+  "total_files": 17,
+  "results": {
+    "book": [
+      {
+        "file_name": "mask_track_004.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\book\\mask_track_004.pcd",
+        "source_category": "book",
+        "source_category_in_label_space": false,
+        "source_category_score": null,
+        "raw_num_points": 34083,
+        "predicted_label": "pillow",
+        "predicted_index": 11,
+        "confidence": 0.8008381128311157,
+        "scores": {
+          "bag": 0.15010489523410797,
+          "bin": 0.0004295700928196311,
+          "box": 0.0037586409598588943,
+          "cabinet": 0.0013502941001206636,
+          "chair": 0.011905013583600521,
+          "desk": 0.00012872093066107482,
+          "display": 0.019094277173280716,
+          "door": 0.0008489867905154824,
+          "shelf": 0.0012841912684962153,
+          "table": 0.0010418404126539826,
+          "bed": 0.002852857578545809,
+          "pillow": 0.8008381128311157,
+          "sink": 0.00035559566458687186,
+          "sofa": 0.004238815046846867,
+          "toilet": 0.001768140820786357
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "pillow",
+            "score": 0.8008381128311157,
+            "class_index": 11
+          },
+          {
+            "rank": 2,
+            "label": "bag",
+            "score": 0.15010489523410797,
+            "class_index": 0
+          },
+          {
+            "rank": 3,
+            "label": "display",
+            "score": 0.019094277173280716,
+            "class_index": 6
+          },
+          {
+            "rank": 4,
+            "label": "chair",
+            "score": 0.011905013583600521,
+            "class_index": 4
+          },
+          {
+            "rank": 5,
+            "label": "sofa",
+            "score": 0.004238815046846867,
+            "class_index": 13
+          }
+        ]
+      },
+      {
+        "file_name": "mask_track_013.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\book\\mask_track_013.pcd",
+        "source_category": "book",
+        "source_category_in_label_space": false,
+        "source_category_score": null,
+        "raw_num_points": 13151,
+        "predicted_label": "shelf",
+        "predicted_index": 8,
+        "confidence": 0.7343187928199768,
+        "scores": {
+          "bag": 0.011891432106494904,
+          "bin": 0.000789486919529736,
+          "box": 0.006507884711027145,
+          "cabinet": 0.031973131000995636,
+          "chair": 0.012469652108848095,
+          "desk": 9.674592001829296e-05,
+          "display": 0.1465435028076172,
+          "door": 0.04784734174609184,
+          "shelf": 0.7343187928199768,
+          "table": 0.0007132148020900786,
+          "bed": 8.483402052661404e-05,
+          "pillow": 0.005331975407898426,
+          "sink": 0.0003346602898091078,
+          "sofa": 0.00026753131533041596,
+          "toilet": 0.0008297564345411956
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "shelf",
+            "score": 0.7343187928199768,
+            "class_index": 8
+          },
+          {
+            "rank": 2,
+            "label": "display",
+            "score": 0.1465435028076172,
+            "class_index": 6
+          },
+          {
+            "rank": 3,
+            "label": "door",
+            "score": 0.04784734174609184,
+            "class_index": 7
+          },
+          {
+            "rank": 4,
+            "label": "cabinet",
+            "score": 0.031973131000995636,
+            "class_index": 3
+          },
+          {
+            "rank": 5,
+            "label": "chair",
+            "score": 0.012469652108848095,
+            "class_index": 4
+          }
+        ]
+      },
+      {
+        "file_name": "mask_track_015.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\book\\mask_track_015.pcd",
+        "source_category": "book",
+        "source_category_in_label_space": false,
+        "source_category_score": null,
+        "raw_num_points": 26587,
+        "predicted_label": "door",
+        "predicted_index": 7,
+        "confidence": 0.9515212178230286,
+        "scores": {
+          "bag": 0.00033663841895759106,
+          "bin": 0.0006341668777167797,
+          "box": 0.0006137766176834702,
+          "cabinet": 0.010306323878467083,
+          "chair": 0.0004516618209891021,
+          "desk": 1.395103845425183e-05,
+          "display": 0.03145799785852432,
+          "door": 0.9515212178230286,
+          "shelf": 0.0003984510840382427,
+          "table": 0.0016433231066912413,
+          "bed": 0.00035544761340133846,
+          "pillow": 0.0010396725265309215,
+          "sink": 0.00011002839892171323,
+          "sofa": 2.261936606373638e-05,
+          "toilet": 0.0010946427937597036
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "door",
+            "score": 0.9515212178230286,
+            "class_index": 7
+          },
+          {
+            "rank": 2,
+            "label": "display",
+            "score": 0.03145799785852432,
+            "class_index": 6
+          },
+          {
+            "rank": 3,
+            "label": "cabinet",
+            "score": 0.010306323878467083,
+            "class_index": 3
+          },
+          {
+            "rank": 4,
+            "label": "table",
+            "score": 0.0016433231066912413,
+            "class_index": 9
+          },
+          {
+            "rank": 5,
+            "label": "toilet",
+            "score": 0.0010946427937597036,
+            "class_index": 14
+          }
+        ]
+      },
+      {
+        "file_name": "mask_track_016.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\book\\mask_track_016.pcd",
+        "source_category": "book",
+        "source_category_in_label_space": false,
+        "source_category_score": null,
+        "raw_num_points": 27026,
+        "predicted_label": "chair",
+        "predicted_index": 4,
+        "confidence": 0.41454556584358215,
+        "scores": {
+          "bag": 0.0007025494705885649,
+          "bin": 0.0005090991617180407,
+          "box": 0.005478805396705866,
+          "cabinet": 0.038660645484924316,
+          "chair": 0.41454556584358215,
+          "desk": 0.00020362150098662823,
+          "display": 0.3385765552520752,
+          "door": 0.18290315568447113,
+          "shelf": 0.009379497729241848,
+          "table": 0.0003213461604900658,
+          "bed": 0.0002999002463184297,
+          "pillow": 0.0012149696704000235,
+          "sink": 0.0002460529503878206,
+          "sofa": 0.0021912241354584694,
+          "toilet": 0.004767085425555706
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "chair",
+            "score": 0.41454556584358215,
+            "class_index": 4
+          },
+          {
+            "rank": 2,
+            "label": "display",
+            "score": 0.3385765552520752,
+            "class_index": 6
+          },
+          {
+            "rank": 3,
+            "label": "door",
+            "score": 0.18290315568447113,
+            "class_index": 7
+          },
+          {
+            "rank": 4,
+            "label": "cabinet",
+            "score": 0.038660645484924316,
+            "class_index": 3
+          },
+          {
+            "rank": 5,
+            "label": "shelf",
+            "score": 0.009379497729241848,
+            "class_index": 8
+          }
+        ]
+      },
+      {
+        "file_name": "mask_track_031.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\book\\mask_track_031.pcd",
+        "source_category": "book",
+        "source_category_in_label_space": false,
+        "source_category_score": null,
+        "raw_num_points": 25888,
+        "predicted_label": "pillow",
+        "predicted_index": 11,
+        "confidence": 0.9108032584190369,
+        "scores": {
+          "bag": 0.011992153711616993,
+          "bin": 0.00012326258001849055,
+          "box": 0.028416886925697327,
+          "cabinet": 0.008844146504998207,
+          "chair": 0.006433311849832535,
+          "desk": 0.0003335572546347976,
+          "display": 0.004918939899653196,
+          "door": 9.98192626866512e-05,
+          "shelf": 0.0010413435520604253,
+          "table": 0.0009752578916959465,
+          "bed": 0.01360672153532505,
+          "pillow": 0.9108032584190369,
+          "sink": 0.00040728336898609996,
+          "sofa": 0.01150679774582386,
+          "toilet": 0.0004973217146471143
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "pillow",
+            "score": 0.9108032584190369,
+            "class_index": 11
+          },
+          {
+            "rank": 2,
+            "label": "box",
+            "score": 0.028416886925697327,
+            "class_index": 2
+          },
+          {
+            "rank": 3,
+            "label": "bed",
+            "score": 0.01360672153532505,
+            "class_index": 10
+          },
+          {
+            "rank": 4,
+            "label": "bag",
+            "score": 0.011992153711616993,
+            "class_index": 0
+          },
+          {
+            "rank": 5,
+            "label": "sofa",
+            "score": 0.01150679774582386,
+            "class_index": 13
+          }
+        ]
+      },
+      {
+        "file_name": "mask_track_038.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\book\\mask_track_038.pcd",
+        "source_category": "book",
+        "source_category_in_label_space": false,
+        "source_category_score": null,
+        "raw_num_points": 30538,
+        "predicted_label": "pillow",
+        "predicted_index": 11,
+        "confidence": 0.45387768745422363,
+        "scores": {
+          "bag": 0.05389503762125969,
+          "bin": 0.0021101285237818956,
+          "box": 0.016257967799901962,
+          "cabinet": 0.0053461575880646706,
+          "chair": 0.010130681097507477,
+          "desk": 0.00044431191054172814,
+          "display": 0.07816706597805023,
+          "door": 0.0005108010955154896,
+          "shelf": 0.021974658593535423,
+          "table": 0.0008752909488976002,
+          "bed": 0.002467671176418662,
+          "pillow": 0.45387768745422363,
+          "sink": 0.002163154538720846,
+          "sofa": 0.3486749827861786,
+          "toilet": 0.0031044413335621357
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "pillow",
+            "score": 0.45387768745422363,
+            "class_index": 11
+          },
+          {
+            "rank": 2,
+            "label": "sofa",
+            "score": 0.3486749827861786,
+            "class_index": 13
+          },
+          {
+            "rank": 3,
+            "label": "display",
+            "score": 0.07816706597805023,
+            "class_index": 6
+          },
+          {
+            "rank": 4,
+            "label": "bag",
+            "score": 0.05389503762125969,
+            "class_index": 0
+          },
+          {
+            "rank": 5,
+            "label": "shelf",
+            "score": 0.021974658593535423,
+            "class_index": 8
+          }
+        ]
+      },
+      {
+        "file_name": "mask_track_040.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\book\\mask_track_040.pcd",
+        "source_category": "book",
+        "source_category_in_label_space": false,
+        "source_category_score": null,
+        "raw_num_points": 29216,
+        "predicted_label": "sofa",
+        "predicted_index": 13,
+        "confidence": 0.7372156977653503,
+        "scores": {
+          "bag": 0.02855789102613926,
+          "bin": 0.0012314952909946442,
+          "box": 0.03538810461759567,
+          "cabinet": 0.01603078469634056,
+          "chair": 0.06428604573011398,
+          "desk": 0.00830833800137043,
+          "display": 0.017802804708480835,
+          "door": 0.0003425454196985811,
+          "shelf": 0.026903025805950165,
+          "table": 0.00629242742434144,
+          "bed": 0.02425447106361389,
+          "pillow": 0.031043697148561478,
+          "sink": 0.0005464995629154146,
+          "sofa": 0.7372156977653503,
+          "toilet": 0.0017961692065000534
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "sofa",
+            "score": 0.7372156977653503,
+            "class_index": 13
+          },
+          {
+            "rank": 2,
+            "label": "chair",
+            "score": 0.06428604573011398,
+            "class_index": 4
+          },
+          {
+            "rank": 3,
+            "label": "box",
+            "score": 0.03538810461759567,
+            "class_index": 2
+          },
+          {
+            "rank": 4,
+            "label": "pillow",
+            "score": 0.031043697148561478,
+            "class_index": 11
+          },
+          {
+            "rank": 5,
+            "label": "bag",
+            "score": 0.02855789102613926,
+            "class_index": 0
+          }
+        ]
+      }
+    ],
+    "chair": [
+      {
+        "file_name": "mask_track_000.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\chair\\mask_track_000.pcd",
+        "source_category": "chair",
+        "source_category_in_label_space": true,
+        "source_category_score": 0.6635591983795166,
+        "raw_num_points": 328777,
+        "predicted_label": "chair",
+        "predicted_index": 4,
+        "confidence": 0.6635591983795166,
+        "scores": {
+          "bag": 0.20599858462810516,
+          "bin": 0.008502000942826271,
+          "box": 0.018415972590446472,
+          "cabinet": 0.037669628858566284,
+          "chair": 0.6635591983795166,
+          "desk": 0.00023546715965494514,
+          "display": 0.007411278784275055,
+          "door": 0.0018309979932382703,
+          "shelf": 0.01754584349691868,
+          "table": 0.001011948217637837,
+          "bed": 0.00031258343369700015,
+          "pillow": 0.014477727003395557,
+          "sink": 0.0001732901146169752,
+          "sofa": 0.02163425087928772,
+          "toilet": 0.0012211018474772573
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "chair",
+            "score": 0.6635591983795166,
+            "class_index": 4
+          },
+          {
+            "rank": 2,
+            "label": "bag",
+            "score": 0.20599858462810516,
+            "class_index": 0
+          },
+          {
+            "rank": 3,
+            "label": "cabinet",
+            "score": 0.037669628858566284,
+            "class_index": 3
+          },
+          {
+            "rank": 4,
+            "label": "sofa",
+            "score": 0.02163425087928772,
+            "class_index": 13
+          },
+          {
+            "rank": 5,
+            "label": "box",
+            "score": 0.018415972590446472,
+            "class_index": 2
+          }
+        ]
+      },
+      {
+        "file_name": "mask_track_001.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\chair\\mask_track_001.pcd",
+        "source_category": "chair",
+        "source_category_in_label_space": true,
+        "source_category_score": 0.8800855875015259,
+        "raw_num_points": 182925,
+        "predicted_label": "chair",
+        "predicted_index": 4,
+        "confidence": 0.8800855875015259,
+        "scores": {
+          "bag": 0.019373685121536255,
+          "bin": 0.001387550961226225,
+          "box": 0.0011371012078598142,
+          "cabinet": 0.0001714547397568822,
+          "chair": 0.8800855875015259,
+          "desk": 2.3800466806278564e-05,
+          "display": 0.0841350257396698,
+          "door": 0.0005332816508598626,
+          "shelf": 0.012372291646897793,
+          "table": 0.00014726139488629997,
+          "bed": 5.38901804247871e-06,
+          "pillow": 0.0001700651628198102,
+          "sink": 1.566490209370386e-05,
+          "sofa": 0.00011071882181568071,
+          "toilet": 0.0003311317414045334
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "chair",
+            "score": 0.8800855875015259,
+            "class_index": 4
+          },
+          {
+            "rank": 2,
+            "label": "display",
+            "score": 0.0841350257396698,
+            "class_index": 6
+          },
+          {
+            "rank": 3,
+            "label": "bag",
+            "score": 0.019373685121536255,
+            "class_index": 0
+          },
+          {
+            "rank": 4,
+            "label": "shelf",
+            "score": 0.012372291646897793,
+            "class_index": 8
+          },
+          {
+            "rank": 5,
+            "label": "bin",
+            "score": 0.001387550961226225,
+            "class_index": 1
+          }
+        ]
+      },
+      {
+        "file_name": "mask_track_007.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\chair\\mask_track_007.pcd",
+        "source_category": "chair",
+        "source_category_in_label_space": true,
+        "source_category_score": 0.0006657338235527277,
+        "raw_num_points": 87889,
+        "predicted_label": "display",
+        "predicted_index": 6,
+        "confidence": 0.9982537627220154,
+        "scores": {
+          "bag": 0.00029119642567820847,
+          "bin": 2.6492542019695975e-05,
+          "box": 0.00018633353465702385,
+          "cabinet": 0.00026368742692284286,
+          "chair": 0.0006657338235527277,
+          "desk": 1.490520276092866e-06,
+          "display": 0.9982537627220154,
+          "door": 0.00015626195818185806,
+          "shelf": 8.489830361213535e-05,
+          "table": 1.0344450629418134e-06,
+          "bed": 1.1476565759949153e-06,
+          "pillow": 4.006026574643329e-05,
+          "sink": 3.0315954973048065e-06,
+          "sofa": 1.733079261612147e-05,
+          "toilet": 7.484753041353542e-06
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "display",
+            "score": 0.9982537627220154,
+            "class_index": 6
+          },
+          {
+            "rank": 2,
+            "label": "chair",
+            "score": 0.0006657338235527277,
+            "class_index": 4
+          },
+          {
+            "rank": 3,
+            "label": "bag",
+            "score": 0.00029119642567820847,
+            "class_index": 0
+          },
+          {
+            "rank": 4,
+            "label": "cabinet",
+            "score": 0.00026368742692284286,
+            "class_index": 3
+          },
+          {
+            "rank": 5,
+            "label": "box",
+            "score": 0.00018633353465702385,
+            "class_index": 2
+          }
+        ]
+      },
+      {
+        "file_name": "mask_track_010.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\chair\\mask_track_010.pcd",
+        "source_category": "chair",
+        "source_category_in_label_space": true,
+        "source_category_score": 0.0012337492080405354,
+        "raw_num_points": 43212,
+        "predicted_label": "shelf",
+        "predicted_index": 8,
+        "confidence": 0.514569878578186,
+        "scores": {
+          "bag": 0.3003998100757599,
+          "bin": 0.00022054038709029555,
+          "box": 0.054239314049482346,
+          "cabinet": 0.011015878058969975,
+          "chair": 0.0012337492080405354,
+          "desk": 4.290037031751126e-05,
+          "display": 0.002168055856600404,
+          "door": 0.003030114807188511,
+          "shelf": 0.514569878578186,
+          "table": 0.0005706112715415657,
+          "bed": 0.0008230573730543256,
+          "pillow": 0.1100321039557457,
+          "sink": 0.0001039195922203362,
+          "sofa": 0.000604592845775187,
+          "toilet": 0.0009453720413148403
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "shelf",
+            "score": 0.514569878578186,
+            "class_index": 8
+          },
+          {
+            "rank": 2,
+            "label": "bag",
+            "score": 0.3003998100757599,
+            "class_index": 0
+          },
+          {
+            "rank": 3,
+            "label": "pillow",
+            "score": 0.1100321039557457,
+            "class_index": 11
+          },
+          {
+            "rank": 4,
+            "label": "box",
+            "score": 0.054239314049482346,
+            "class_index": 2
+          },
+          {
+            "rank": 5,
+            "label": "cabinet",
+            "score": 0.011015878058969975,
+            "class_index": 3
+          }
+        ]
+      },
+      {
+        "file_name": "mask_track_016.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\chair\\mask_track_016.pcd",
+        "source_category": "chair",
+        "source_category_in_label_space": true,
+        "source_category_score": 0.08243668079376221,
+        "raw_num_points": 134156,
+        "predicted_label": "display",
+        "predicted_index": 6,
+        "confidence": 0.4329107701778412,
+        "scores": {
+          "bag": 0.13283170759677887,
+          "bin": 0.03110714629292488,
+          "box": 0.16669218242168427,
+          "cabinet": 0.0348769873380661,
+          "chair": 0.08243668079376221,
+          "desk": 0.0015835133381187916,
+          "display": 0.4329107701778412,
+          "door": 0.007076144218444824,
+          "shelf": 0.008476780727505684,
+          "table": 0.004220270551741123,
+          "bed": 0.0010147802531719208,
+          "pillow": 0.04008018225431442,
+          "sink": 0.0010309789795428514,
+          "sofa": 0.053693074733018875,
+          "toilet": 0.0019688282627612352
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "display",
+            "score": 0.4329107701778412,
+            "class_index": 6
+          },
+          {
+            "rank": 2,
+            "label": "box",
+            "score": 0.16669218242168427,
+            "class_index": 2
+          },
+          {
+            "rank": 3,
+            "label": "bag",
+            "score": 0.13283170759677887,
+            "class_index": 0
+          },
+          {
+            "rank": 4,
+            "label": "chair",
+            "score": 0.08243668079376221,
+            "class_index": 4
+          },
+          {
+            "rank": 5,
+            "label": "sofa",
+            "score": 0.053693074733018875,
+            "class_index": 13
+          }
+        ]
+      },
+      {
+        "file_name": "mask_track_030.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\chair\\mask_track_030.pcd",
+        "source_category": "chair",
+        "source_category_in_label_space": true,
+        "source_category_score": 0.6719585657119751,
+        "raw_num_points": 117243,
+        "predicted_label": "chair",
+        "predicted_index": 4,
+        "confidence": 0.6719585657119751,
+        "scores": {
+          "bag": 0.09228633344173431,
+          "bin": 0.0011232804972678423,
+          "box": 0.03777940571308136,
+          "cabinet": 0.001964426599442959,
+          "chair": 0.6719585657119751,
+          "desk": 0.00037796999095007777,
+          "display": 0.0889221727848053,
+          "door": 0.0009224546374753118,
+          "shelf": 0.07044842839241028,
+          "table": 0.001814734423533082,
+          "bed": 0.00020068111189175397,
+          "pillow": 0.002777225337922573,
+          "sink": 5.15106221428141e-05,
+          "sofa": 0.003051139647141099,
+          "toilet": 0.02632170356810093
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "chair",
+            "score": 0.6719585657119751,
+            "class_index": 4
+          },
+          {
+            "rank": 2,
+            "label": "bag",
+            "score": 0.09228633344173431,
+            "class_index": 0
+          },
+          {
+            "rank": 3,
+            "label": "display",
+            "score": 0.0889221727848053,
+            "class_index": 6
+          },
+          {
+            "rank": 4,
+            "label": "shelf",
+            "score": 0.07044842839241028,
+            "class_index": 8
+          },
+          {
+            "rank": 5,
+            "label": "box",
+            "score": 0.03777940571308136,
+            "class_index": 2
+          }
+        ]
+      },
+      {
+        "file_name": "mask_track_039.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\chair\\mask_track_039.pcd",
+        "source_category": "chair",
+        "source_category_in_label_space": true,
+        "source_category_score": 0.25094908475875854,
+        "raw_num_points": 179338,
+        "predicted_label": "display",
+        "predicted_index": 6,
+        "confidence": 0.371506005525589,
+        "scores": {
+          "bag": 0.05239525064826012,
+          "bin": 0.02682972513139248,
+          "box": 0.17760069668293,
+          "cabinet": 0.01293105073273182,
+          "chair": 0.25094908475875854,
+          "desk": 0.0001474344899179414,
+          "display": 0.371506005525589,
+          "door": 0.003975151106715202,
+          "shelf": 0.09525147080421448,
+          "table": 0.0009608074906282127,
+          "bed": 7.589490996906534e-05,
+          "pillow": 0.004739070776849985,
+          "sink": 0.00041331537067890167,
+          "sofa": 0.0005248758243396878,
+          "toilet": 0.0017002441454678774
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "display",
+            "score": 0.371506005525589,
+            "class_index": 6
+          },
+          {
+            "rank": 2,
+            "label": "chair",
+            "score": 0.25094908475875854,
+            "class_index": 4
+          },
+          {
+            "rank": 3,
+            "label": "box",
+            "score": 0.17760069668293,
+            "class_index": 2
+          },
+          {
+            "rank": 4,
+            "label": "shelf",
+            "score": 0.09525147080421448,
+            "class_index": 8
+          },
+          {
+            "rank": 5,
+            "label": "bag",
+            "score": 0.05239525064826012,
+            "class_index": 0
+          }
+        ]
+      }
+    ],
+    "teddy_bear": [
+      {
+        "file_name": "mask_track_000.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\teddy_bear\\mask_track_000.pcd",
+        "source_category": "teddy_bear",
+        "source_category_in_label_space": false,
+        "source_category_score": null,
+        "raw_num_points": 208599,
+        "predicted_label": "display",
+        "predicted_index": 6,
+        "confidence": 0.44108086824417114,
+        "scores": {
+          "bag": 0.004192777909338474,
+          "bin": 0.018732331693172455,
+          "box": 0.04067745432257652,
+          "cabinet": 0.19696396589279175,
+          "chair": 0.25632932782173157,
+          "desk": 0.0003451402299106121,
+          "display": 0.44108086824417114,
+          "door": 0.011040853336453438,
+          "shelf": 0.001326940138824284,
+          "table": 0.0003845944593194872,
+          "bed": 0.00038595430669374764,
+          "pillow": 0.008672991767525673,
+          "sink": 0.0012686444679275155,
+          "sofa": 0.017227154225111008,
+          "toilet": 0.0013710111379623413
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "display",
+            "score": 0.44108086824417114,
+            "class_index": 6
+          },
+          {
+            "rank": 2,
+            "label": "chair",
+            "score": 0.25632932782173157,
+            "class_index": 4
+          },
+          {
+            "rank": 3,
+            "label": "cabinet",
+            "score": 0.19696396589279175,
+            "class_index": 3
+          },
+          {
+            "rank": 4,
+            "label": "box",
+            "score": 0.04067745432257652,
+            "class_index": 2
+          },
+          {
+            "rank": 5,
+            "label": "bin",
+            "score": 0.018732331693172455,
+            "class_index": 1
+          }
+        ]
+      },
+      {
+        "file_name": "mask_track_002.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\teddy_bear\\mask_track_002.pcd",
+        "source_category": "teddy_bear",
+        "source_category_in_label_space": false,
+        "source_category_score": null,
+        "raw_num_points": 96960,
+        "predicted_label": "shelf",
+        "predicted_index": 8,
+        "confidence": 0.5584149956703186,
+        "scores": {
+          "bag": 0.0889454185962677,
+          "bin": 0.043082449585199356,
+          "box": 0.1347295641899109,
+          "cabinet": 0.0007694291998632252,
+          "chair": 0.023947957903146744,
+          "desk": 0.0002004591515287757,
+          "display": 0.06033877655863762,
+          "door": 0.0016775589901953936,
+          "shelf": 0.5584149956703186,
+          "table": 0.004299253225326538,
+          "bed": 0.0005364882526919246,
+          "pillow": 0.023502813652157784,
+          "sink": 0.007447191048413515,
+          "sofa": 0.004354675766080618,
+          "toilet": 0.0477529913187027
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "shelf",
+            "score": 0.5584149956703186,
+            "class_index": 8
+          },
+          {
+            "rank": 2,
+            "label": "box",
+            "score": 0.1347295641899109,
+            "class_index": 2
+          },
+          {
+            "rank": 3,
+            "label": "bag",
+            "score": 0.0889454185962677,
+            "class_index": 0
+          },
+          {
+            "rank": 4,
+            "label": "display",
+            "score": 0.06033877655863762,
+            "class_index": 6
+          },
+          {
+            "rank": 5,
+            "label": "toilet",
+            "score": 0.0477529913187027,
+            "class_index": 14
+          }
+        ]
+      }
+    ],
+    "tv": [
+      {
+        "file_name": "fused_object.pcd",
+        "file_path": "F:\\NUS\\Sem2\\ME6402\\TSDF\\data\\extra_object\\tv\\fused_object.pcd",
+        "source_category": "tv",
+        "source_category_in_label_space": false,
+        "source_category_score": null,
+        "raw_num_points": 58887,
+        "predicted_label": "bag",
+        "predicted_index": 0,
+        "confidence": 0.8656064867973328,
+        "scores": {
+          "bag": 0.8656064867973328,
+          "bin": 0.0014061451656743884,
+          "box": 0.00043828116031363606,
+          "cabinet": 0.0007551666931249201,
+          "chair": 0.04902425408363342,
+          "desk": 7.922740041976795e-05,
+          "display": 0.025204431265592575,
+          "door": 0.00025687090237624943,
+          "shelf": 0.012473282404243946,
+          "table": 0.002477520378306508,
+          "bed": 7.040618947939947e-05,
+          "pillow": 0.03613174334168434,
+          "sink": 9.366669110022485e-05,
+          "sofa": 0.0027988723013550043,
+          "toilet": 0.0031836882699280977
+        },
+        "top_predictions": [
+          {
+            "rank": 1,
+            "label": "bag",
+            "score": 0.8656064867973328,
+            "class_index": 0
+          },
+          {
+            "rank": 2,
+            "label": "chair",
+            "score": 0.04902425408363342,
+            "class_index": 4
+          },
+          {
+            "rank": 3,
+            "label": "pillow",
+            "score": 0.03613174334168434,
+            "class_index": 11
+          },
+          {
+            "rank": 4,
+            "label": "display",
+            "score": 0.025204431265592575,
+            "class_index": 6
+          },
+          {
+            "rank": 5,
+            "label": "shelf",
+            "score": 0.012473282404243946,
+            "class_index": 8
+          }
+        ]
+      }
+    ]
+  }
+}

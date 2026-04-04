@@ -13,15 +13,10 @@ from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler, get_wor
 '''
 python3 detection/pointnet2/train_seg.py
 
-python3 detection/pointnet2/train_seg.py \
-  --epochs 100 \
-  --batch-size 8 \
-  --use-class-weights
-  
-  conda run -n tsdf python detection/pointnet2/train_seg.py \
-  --use-class-weights \
-  --rare-class-sampling-ratio 0.35 \
-  --rare-class-weight-power 0.75
+python detection/pointnet2/train_seg.py \
+  --use-wandb \
+  --wandb-project TSDF-PointNet2-Seg \
+  --wandb-run-name s3dis_pointnet2_run1
 
 '''
 
@@ -33,6 +28,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from TSDF.detection.pointnet2.pointnet2seg import PointNet2SemSegSSG, SEG_INPUT_CHANNELS
+from TSDF.detection.training_plots import plot_segmentation_history
 
 try:
     from tqdm import tqdm
@@ -43,6 +39,11 @@ try:
     import open3d as o3d
 except Exception:
     o3d = None
+
+try:
+    import wandb
+except Exception:
+    wandb = None
 
 
 DEFAULT_DATA_ROOT = Path("data") / "S3DIS_seg"
@@ -360,6 +361,69 @@ def compute_class_weights(dataset, num_classes, sample_cap=200):
     return torch.from_numpy(weights.astype(np.float32))
 
 
+def lovasz_grad(gt_sorted):
+    gts = gt_sorted.sum()
+    intersection = gts - gt_sorted.cumsum(0)
+    union = gts + (1.0 - gt_sorted).cumsum(0)
+    jaccard = 1.0 - intersection / union
+    if gt_sorted.numel() > 1:
+        jaccard[1:] = jaccard[1:] - jaccard[:-1]
+    return jaccard
+
+
+def flatten_probas(probas, labels, ignore_index):
+    if probas.ndim != 3:
+        raise ValueError(f"Expected [B, C, N] probabilities, got {tuple(probas.shape)}")
+    probas = probas.permute(0, 2, 1).reshape(-1, probas.shape[1])
+    labels = labels.reshape(-1)
+    if ignore_index is None:
+        return probas, labels
+    valid = labels != ignore_index
+    return probas[valid], labels[valid]
+
+
+def lovasz_softmax_flat(probas, labels, classes="present"):
+    if probas.numel() == 0:
+        return probas.sum() * 0.0
+
+    num_classes = probas.shape[1]
+    losses = []
+    class_indices = range(num_classes) if classes in {"all", "present"} else classes
+
+    for class_idx in class_indices:
+        foreground = (labels == class_idx).float()
+        if classes == "present" and foreground.sum() == 0:
+            continue
+        class_pred = probas[:, class_idx]
+        errors = (foreground - class_pred).abs()
+        errors_sorted, permutation = torch.sort(errors, descending=True)
+        fg_sorted = foreground[permutation]
+        losses.append(torch.dot(errors_sorted, lovasz_grad(fg_sorted)))
+
+    if not losses:
+        return probas.sum() * 0.0
+    return torch.stack(losses).mean()
+
+
+def lovasz_softmax_loss(logits, labels, ignore_index=-100):
+    probas = F.softmax(logits, dim=1)
+    probas, labels = flatten_probas(probas, labels, ignore_index)
+    return lovasz_softmax_flat(probas, labels, classes="present")
+
+
+def compute_seg_loss(logits, labels, class_weights=None, ignore_index=-100, lovasz_weight=0.5):
+    ce_loss = F.cross_entropy(
+        logits,
+        labels,
+        weight=class_weights,
+        ignore_index=ignore_index,
+    )
+    if lovasz_weight <= 0:
+        return ce_loss
+    lovasz_loss = lovasz_softmax_loss(logits, labels, ignore_index=ignore_index)
+    return (1.0 - lovasz_weight) * ce_loss + lovasz_weight * lovasz_loss
+
+
 def format_per_class_iou(label_names, per_class_iou):
     parts = []
     for class_idx, label_name in enumerate(label_names):
@@ -369,7 +433,7 @@ def format_per_class_iou(label_names, per_class_iou):
     return " | ".join(parts)
 
 
-def evaluate(model, dataloader, device, num_classes, ignore_index=-100, class_weights=None):
+def evaluate(model, dataloader, device, num_classes, ignore_index=-100, class_weights=None, lovasz_weight=0.5):
     model.eval()
     total_loss = 0.0
     total_correct = 0
@@ -386,11 +450,12 @@ def evaluate(model, dataloader, device, num_classes, ignore_index=-100, class_we
             points = points.to(device)
             labels = labels.to(device)
             logits = model(points)
-            loss = F.cross_entropy(
+            loss = compute_seg_loss(
                 logits,
                 labels,
-                weight=class_weights,
+                class_weights=class_weights,
                 ignore_index=ignore_index,
+                lovasz_weight=lovasz_weight,
             )
             preds = logits.argmax(dim=1)
             valid = labels != ignore_index
@@ -450,14 +515,20 @@ def main():
     parser.add_argument(
         "--rare-class-sampling-ratio",
         type=float,
-        default=0.25,
+        default=0.20,
         help="Fraction of sampled training points to draw with rare-class-aware weighting.",
     )
     parser.add_argument(
         "--rare-class-weight-power",
         type=float,
-        default=0.5,
+        default=0.40,
         help="Exponent applied to inverse class frequency for rare-class-aware sampling.",
+    )
+    parser.add_argument(
+        "--lovasz-weight",
+        type=float,
+        default=0.5,
+        help="Blend weight between cross-entropy and Lovasz-Softmax loss.",
     )
     parser.add_argument(
         "--output-dir",
@@ -465,6 +536,9 @@ def main():
         help="Model output directory. Defaults to seg_model/pointnet2 under the repository root.",
     )
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--use-wandb", action="store_true")
+    parser.add_argument("--wandb-project", default="TSDF-PointNet2-Seg")
+    parser.add_argument("--wandb-run-name", default=None)
     args = parser.parse_args()
 
     set_seed(args.seed)
@@ -472,6 +546,9 @@ def main():
     labels_path = resolve_repo_path(args.labels) if args.labels is not None else None
     output_dir = resolve_repo_path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.use_wandb and wandb is None:
+        raise RuntimeError("wandb is not installed in this environment. Install it or omit --use-wandb.")
 
     train_dataset = SceneSegDataset(
         root=data_root,
@@ -520,6 +597,9 @@ def main():
         for label in labels:
             handle.write(f"{label}\n")
 
+    if args.use_wandb:
+        wandb.init(project=args.wandb_project, name=args.wandb_run_name, config=vars(args))
+
     print(f"train_samples={len(train_dataset)} | val_samples={len(val_dataset)} | num_classes={args.num_classes}")
     print(
         f"device={args.device} | workers={args.workers} | batch_size={args.batch_size} | "
@@ -527,7 +607,8 @@ def main():
     )
     print(
         f"rare_class_sampling_ratio={args.rare_class_sampling_ratio:.2f} | "
-        f"rare_class_weight_power={args.rare_class_weight_power:.2f}"
+        f"rare_class_weight_power={args.rare_class_weight_power:.2f} | "
+        f"lovasz_weight={args.lovasz_weight:.2f}"
     )
 
     class_weights = None
@@ -559,11 +640,12 @@ def main():
             labels_batch = labels_batch.to(args.device)
             optimizer.zero_grad()
             logits = model(points)
-            loss = F.cross_entropy(
+            loss = compute_seg_loss(
                 logits,
                 labels_batch,
-                weight=class_weights,
+                class_weights=class_weights,
                 ignore_index=args.ignore_index,
+                lovasz_weight=args.lovasz_weight,
             )
             loss.backward()
             optimizer.step()
@@ -585,6 +667,7 @@ def main():
             num_classes=args.num_classes,
             ignore_index=args.ignore_index,
             class_weights=class_weights,
+            lovasz_weight=args.lovasz_weight,
         )
         scheduler.step()
 
@@ -609,6 +692,28 @@ def main():
         )
         print(f"val_per_class_iou | {format_per_class_iou(labels, val_per_class_iou)}")
 
+        if args.use_wandb:
+            wandb.log(
+                {
+                    "epoch": epoch,
+                    "train_loss": train_loss,
+                    "train_acc": train_acc,
+                    "val_loss": val_loss,
+                    "val_acc": val_acc,
+                    "val_miou": val_miou,
+                    "lr": optimizer.param_groups[0]["lr"],
+                    "best_val_miou": max(best_miou, val_miou),
+                    **{
+                        f"val_iou/{label_name}": (
+                            val_per_class_iou[class_idx]
+                            if val_per_class_iou[class_idx] is not None
+                            else float("nan")
+                        )
+                        for class_idx, label_name in enumerate(labels)
+                    },
+                }
+            )
+
         checkpoint = {
             "epoch": epoch,
             "model_state_dict": model.state_dict(),
@@ -619,6 +724,7 @@ def main():
             "input_channels": input_channels,
             "labels": labels,
             "model_type": "pointnet2_semseg_ssg",
+            "lovasz_weight": args.lovasz_weight,
         }
         torch.save(checkpoint, last_ckpt)
         if val_miou >= best_miou:
@@ -627,11 +733,30 @@ def main():
 
     with open(output_dir / "train_metrics.json", "w", encoding="utf-8") as handle:
         json.dump(history, handle, indent=2)
+    plot_paths = plot_segmentation_history(output_dir, history, labels, "PointNet2 Segmentation")
 
     print(f"Training finished. Best val_mIoU={best_miou:.4f}")
     print(f"Best checkpoint: {best_ckpt}")
     print(f"Last checkpoint: {last_ckpt}")
     print(f"Labels file: {output_dir / 'labels.txt'}")
+    for plot_path in plot_paths:
+        print(f"plot: {plot_path}")
+
+    if args.use_wandb:
+        wandb.summary["best_checkpoint"] = str(best_ckpt)
+        wandb.summary["last_checkpoint"] = str(last_ckpt)
+        wandb.summary["labels_path"] = str(output_dir / "labels.txt")
+        wandb.summary["metrics_path"] = str(output_dir / "train_metrics.json")
+        wandb.summary["best_val_miou"] = best_miou
+        wandb.summary["plot_paths"] = [str(path) for path in plot_paths]
+        image_logs = {
+            f"plot/{Path(path).stem}": wandb.Image(str(path))
+            for path in plot_paths
+            if Path(path).suffix.lower() == ".png"
+        }
+        if image_logs:
+            wandb.log(image_logs)
+        wandb.finish()
 
 
 if __name__ == "__main__":

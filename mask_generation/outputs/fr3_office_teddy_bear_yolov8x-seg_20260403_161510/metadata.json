@@ -1,0 +1,58 @@
+{
+  "config": "configs/rgbd/tum/fr3_office.yaml",
+  "dataset": "data/tum/rgbd_dataset_freiburg3_long_office_household",
+  "target_class": [
+    "teddy bear"
+  ],
+  "model": "yolov8x-seg.pt",
+  "created_at": "2026-04-03T16:15:10",
+  "score_threshold": 0.35,
+  "merge_mode": "top1",
+  "device": "cuda:0",
+  "frames_total": 2585,
+  "frames_with_detection": 773,
+  "frames_without_detection": 1812,
+  "frames_saved": 821,
+  "separate_instances": true,
+  "min_instance_mask_pixels": 2500,
+  "min_track_frames": 60,
+  "tracks": [
+    {
+      "track_id": 0,
+      "frames_saved": 168,
+      "mask_list": "/home/haochen/code/TSDF/mask_generation/outputs/fr3_office_teddy_bear_yolov8x-seg_20260403_161510/mask_track_000.txt"
+    },
+    {
+      "track_id": 2,
+      "frames_saved": 310,
+      "mask_list": "/home/haochen/code/TSDF/mask_generation/outputs/fr3_office_teddy_bear_yolov8x-seg_20260403_161510/mask_track_002.txt"
+    },
+    {
+      "track_id": 6,
+      "frames_saved": 286,
+      "mask_list": "/home/haochen/code/TSDF/mask_generation/outputs/fr3_office_teddy_bear_yolov8x-seg_20260403_161510/mask_track_006.txt"
+    }
+  ],
+  "rejected_tracks": [
+    {
+      "track_id": 1,
+      "frames_saved": 38,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 3,
+      "frames_saved": 15,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 4,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 5,
+      "frames_saved": 3,
+      "reason": "frames_saved < 60"
+    }
+  ]
+}

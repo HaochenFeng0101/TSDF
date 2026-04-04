@@ -1,0 +1,7 @@
+mask_track_004.pcd frames_used=169 points=34083 mask_list=mask_track_004.txt
+mask_track_013.pcd frames_used=111 points=13151 mask_list=mask_track_013.txt
+mask_track_015.pcd frames_used=271 points=26587 mask_list=mask_track_015.txt
+mask_track_016.pcd frames_used=234 points=27026 mask_list=mask_track_016.txt
+mask_track_031.pcd frames_used=305 points=25888 mask_list=mask_track_031.txt
+mask_track_038.pcd frames_used=275 points=30538 mask_list=mask_track_038.txt
+mask_track_040.pcd frames_used=104 points=29216 mask_list=mask_track_040.txt

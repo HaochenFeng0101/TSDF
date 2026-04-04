@@ -4,13 +4,13 @@ from pathlib import Path
 
 import open3d as o3d
 '''
-
 cd /home/haochen/code/TSDF
 bash openmvs/run_openmvs_tum.sh \
   --config configs/rgbd/tum/fr3_office.yaml \
-  --workspace-name fr3_office_openmvs_safe \
-  --frame-stride 3 \
-  --max-frames 1800 \
+  --workspace-name fr3_office_openmvs_color \
+  --reexport \
+  --frame-stride 5 \
+  --max-frames 2800 \
   --resolution-level 2 \
   --max-resolution 1600 \
   --min-resolution 640 \
@@ -23,9 +23,8 @@ bash openmvs/run_openmvs_tum.sh \
   --mesh-smooth 1 \
   --refine-scales 1 \
   --refine-max-views 4 \
-  --texture-max-size 2048 \
   --stage-pcd-points 200000 \
-  --max-threads 8
+  --max-threads 6
 
 
 

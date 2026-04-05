@@ -79,9 +79,17 @@ def modelnet40_root_exists(root):
     root = Path(root)
     h5_candidate = root / "modelnet40_ply_hdf5_2048" if root.name != "modelnet40_ply_hdf5_2048" else root
     off_candidate = root / "ModelNet40" if root.name != "ModelNet40" else root
-    return (
-        (h5_candidate / "train_files.txt").exists() and (h5_candidate / "shape_names.txt").exists()
-    ) or off_candidate.exists()
+    if (h5_candidate / "train_files.txt").exists() and (h5_candidate / "shape_names.txt").exists():
+        return True
+    if off_candidate.exists():
+        return True
+    # Accept direct class/split layout:
+    # <root>/<class>/train/*.npy|off and <root>/<class>/test/*.npy|off
+    if root.exists() and root.is_dir():
+        class_dirs = [path for path in root.iterdir() if path.is_dir()]
+        if class_dirs and any((cls / "train").exists() or (cls / "test").exists() for cls in class_dirs):
+            return True
+    return False
 
 
 def discover_extra_object_labels(root):
@@ -431,30 +439,43 @@ class ModelNet40OffDataset(Dataset):
         if not self.labels:
             raise RuntimeError(f"No class directories found under {self.root}.")
 
+        supported_exts = {".off"} | set(POINT_FILE_EXTS)
         self.samples = []
         for label_idx, label in enumerate(self.labels):
             split_dir = self.root / label / split
             if not split_dir.exists():
                 continue
-            for path in sorted(split_dir.glob("*.off")):
+            for path in sorted(split_dir.iterdir()):
+                if not path.is_file():
+                    continue
+                if path.suffix.lower() not in supported_exts:
+                    continue
                 self.samples.append({"path": path, "label_idx": label_idx})
 
         if not self.samples:
-            raise RuntimeError(f"No OFF files found for split '{split}' under {self.root}.")
+            raise RuntimeError(
+                f"No supported point files found for split '{split}' under {self.root}. "
+                f"Expected extensions: {sorted(supported_exts)}"
+            )
 
     def __len__(self):
         return len(self.samples)
 
     def __getitem__(self, idx):
         sample = self.samples[idx]
-        vertices, faces = load_off_mesh(sample["path"])
-        try:
-            points = sample_points_from_mesh(vertices, faces, self.num_points, self.rng)
-        except ValueError:
-            safe_vertices = vertices[np.isfinite(vertices).all(axis=1)]
-            if len(safe_vertices) == 0:
-                raise
-            points = sample_points(safe_vertices.astype(np.float32), self.num_points, self.rng).astype(np.float32)
+        path = sample["path"]
+        if path.suffix.lower() == ".off":
+            vertices, faces = load_off_mesh(path)
+            try:
+                points = sample_points_from_mesh(vertices, faces, self.num_points, self.rng)
+            except ValueError:
+                safe_vertices = vertices[np.isfinite(vertices).all(axis=1)]
+                if len(safe_vertices) == 0:
+                    raise
+                points = sample_points(safe_vertices.astype(np.float32), self.num_points, self.rng).astype(np.float32)
+        else:
+            points = load_point_file(path)
+            points = sample_points(points, self.num_points, self.rng).astype(np.float32)
         points = normalize_points(points)
         if self.augment:
             points = maybe_augment(points, self.rng)

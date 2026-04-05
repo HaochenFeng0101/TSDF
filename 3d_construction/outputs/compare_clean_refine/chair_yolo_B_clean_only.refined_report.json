@@ -1,0 +1,3328 @@
+{
+  "config": "configs/rgbd/tum/fr3_office.yaml",
+  "dataset": "data/tum/rgbd_dataset_freiburg3_long_office_household",
+  "mask_dir": "mask_generation/outputs/fr3_office_chair_yolov8x-seg_20260403_154353/masks/track_039",
+  "mask_list": null,
+  "frames_loaded": 408,
+  "missing_masks": 2117,
+  "frames_used": 408,
+  "frames_skipped_empty": 0,
+  "frames_skipped_after_frame_clean": 0,
+  "points_final": 4394626,
+  "settings": {
+    "config": "configs/rgbd/tum/fr3_office.yaml",
+    "dataset": null,
+    "mask_dir": "mask_generation/outputs/fr3_office_chair_yolov8x-seg_20260403_154353/masks/track_039",
+    "mask_list": null,
+    "mask_suffix": "",
+    "output": "3d_construction/outputs/compare_clean_refine/chair_yolo_B_clean_only.pcd",
+    "frame_stride": 1,
+    "max_frames": null,
+    "max_dt": 0.03,
+    "input_width": null,
+    "input_height": null,
+    "mask_threshold": 0.5,
+    "min_mask_pixels": 96,
+    "largest_component": true,
+    "mask_close_kernel": 3,
+    "mask_border_erode": 3,
+    "depth_min": 0.05,
+    "depth_trunc": 4.0,
+    "depth_consistency_kernel": 0,
+    "depth_consistency_threshold": 0.0,
+    "frame_voxel_size": 0.0,
+    "frame_remove_radius_outlier": false,
+    "frame_radius_min_points": 6,
+    "frame_radius_radius": 0.03,
+    "frame_dbscan_eps": 0.0,
+    "frame_dbscan_min_points": 20,
+    "frame_cluster_mode": "multi",
+    "frame_keep_cluster_ratio": 0.18,
+    "frame_keep_min_cluster_points": 120,
+    "min_frame_points_after_clean": 1,
+    "global_voxel_size": 0.0,
+    "remove_statistical_outlier": false,
+    "outlier_nb_neighbors": 20,
+    "outlier_std_ratio": 1.8,
+    "global_remove_radius_outlier": false,
+    "global_radius_min_points": 10,
+    "global_radius_radius": 0.04,
+    "global_dbscan_eps": 0.0,
+    "global_dbscan_min_points": 40,
+    "global_cluster_mode": "multi",
+    "global_keep_cluster_ratio": 0.12,
+    "global_keep_min_cluster_points": 600,
+    "log_every": 50
+  },
+  "global_stats": {
+    "global_points_before_clean": 4394626,
+    "global_points_after_clean": 4394626,
+    "global_clusters": 0
+  },
+  "frame_reports": [
+    {
+      "timestamp": 1341848053.88979,
+      "mask_pixels": 7479,
+      "frame_points_raw": 3210,
+      "frame_points_after_cluster": 3210,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848053.925729,
+      "mask_pixels": 11513,
+      "frame_points_raw": 5652,
+      "frame_points_after_cluster": 5652,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848053.951067,
+      "mask_pixels": 14872,
+      "frame_points_raw": 8893,
+      "frame_points_after_cluster": 8893,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848053.986823,
+      "mask_pixels": 19164,
+      "frame_points_raw": 13053,
+      "frame_points_after_cluster": 13053,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.051032,
+      "mask_pixels": 16817,
+      "frame_points_raw": 13669,
+      "frame_points_after_cluster": 13669,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.086777,
+      "mask_pixels": 20097,
+      "frame_points_raw": 14543,
+      "frame_points_after_cluster": 14543,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.118853,
+      "mask_pixels": 20404,
+      "frame_points_raw": 14737,
+      "frame_points_after_cluster": 14737,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.155032,
+      "mask_pixels": 20690,
+      "frame_points_raw": 15145,
+      "frame_points_after_cluster": 15145,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.186687,
+      "mask_pixels": 21330,
+      "frame_points_raw": 15664,
+      "frame_points_after_cluster": 15664,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.21903,
+      "mask_pixels": 21256,
+      "frame_points_raw": 15489,
+      "frame_points_after_cluster": 15489,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.254827,
+      "mask_pixels": 20354,
+      "frame_points_raw": 14945,
+      "frame_points_after_cluster": 14945,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.286801,
+      "mask_pixels": 20191,
+      "frame_points_raw": 16084,
+      "frame_points_after_cluster": 16084,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.322895,
+      "mask_pixels": 19119,
+      "frame_points_raw": 16232,
+      "frame_points_after_cluster": 16232,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.35479,
+      "mask_pixels": 20069,
+      "frame_points_raw": 16317,
+      "frame_points_after_cluster": 16317,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.387103,
+      "mask_pixels": 21959,
+      "frame_points_raw": 17477,
+      "frame_points_after_cluster": 17477,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.422878,
+      "mask_pixels": 19902,
+      "frame_points_raw": 16661,
+      "frame_points_after_cluster": 16661,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.454739,
+      "mask_pixels": 20031,
+      "frame_points_raw": 15910,
+      "frame_points_after_cluster": 15910,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.486883,
+      "mask_pixels": 19354,
+      "frame_points_raw": 15268,
+      "frame_points_after_cluster": 15268,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.522689,
+      "mask_pixels": 20828,
+      "frame_points_raw": 16268,
+      "frame_points_after_cluster": 16268,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.554861,
+      "mask_pixels": 20659,
+      "frame_points_raw": 15534,
+      "frame_points_after_cluster": 15534,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.59079,
+      "mask_pixels": 19740,
+      "frame_points_raw": 15742,
+      "frame_points_after_cluster": 15742,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.622694,
+      "mask_pixels": 19976,
+      "frame_points_raw": 15808,
+      "frame_points_after_cluster": 15808,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.656449,
+      "mask_pixels": 19853,
+      "frame_points_raw": 15987,
+      "frame_points_after_cluster": 15987,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.691021,
+      "mask_pixels": 20923,
+      "frame_points_raw": 17503,
+      "frame_points_after_cluster": 17503,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.722739,
+      "mask_pixels": 21134,
+      "frame_points_raw": 17882,
+      "frame_points_after_cluster": 17882,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.754741,
+      "mask_pixels": 21476,
+      "frame_points_raw": 17980,
+      "frame_points_after_cluster": 17980,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.790887,
+      "mask_pixels": 20777,
+      "frame_points_raw": 17492,
+      "frame_points_after_cluster": 17492,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.822877,
+      "mask_pixels": 19640,
+      "frame_points_raw": 17522,
+      "frame_points_after_cluster": 17522,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.858903,
+      "mask_pixels": 19957,
+      "frame_points_raw": 17834,
+      "frame_points_after_cluster": 17834,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.890895,
+      "mask_pixels": 19641,
+      "frame_points_raw": 17256,
+      "frame_points_after_cluster": 17256,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.922754,
+      "mask_pixels": 20040,
+      "frame_points_raw": 17826,
+      "frame_points_after_cluster": 17826,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.958727,
+      "mask_pixels": 18894,
+      "frame_points_raw": 17360,
+      "frame_points_after_cluster": 17360,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848054.991052,
+      "mask_pixels": 18450,
+      "frame_points_raw": 16284,
+      "frame_points_after_cluster": 16284,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.023048,
+      "mask_pixels": 18420,
+      "frame_points_raw": 16610,
+      "frame_points_after_cluster": 16610,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.058739,
+      "mask_pixels": 18766,
+      "frame_points_raw": 17171,
+      "frame_points_after_cluster": 17171,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.090735,
+      "mask_pixels": 17895,
+      "frame_points_raw": 16045,
+      "frame_points_after_cluster": 16045,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.126977,
+      "mask_pixels": 17287,
+      "frame_points_raw": 15996,
+      "frame_points_after_cluster": 15996,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.159212,
+      "mask_pixels": 17520,
+      "frame_points_raw": 16556,
+      "frame_points_after_cluster": 16556,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.190986,
+      "mask_pixels": 16731,
+      "frame_points_raw": 15917,
+      "frame_points_after_cluster": 15917,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.226768,
+      "mask_pixels": 16418,
+      "frame_points_raw": 15317,
+      "frame_points_after_cluster": 15317,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.258881,
+      "mask_pixels": 16576,
+      "frame_points_raw": 15602,
+      "frame_points_after_cluster": 15602,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.294725,
+      "mask_pixels": 16143,
+      "frame_points_raw": 15255,
+      "frame_points_after_cluster": 15255,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.326795,
+      "mask_pixels": 16101,
+      "frame_points_raw": 15012,
+      "frame_points_after_cluster": 15012,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.358938,
+      "mask_pixels": 16085,
+      "frame_points_raw": 15200,
+      "frame_points_after_cluster": 15200,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.394711,
+      "mask_pixels": 15995,
+      "frame_points_raw": 15527,
+      "frame_points_after_cluster": 15527,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.426823,
+      "mask_pixels": 15357,
+      "frame_points_raw": 14522,
+      "frame_points_after_cluster": 14522,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.458813,
+      "mask_pixels": 15344,
+      "frame_points_raw": 14680,
+      "frame_points_after_cluster": 14680,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.494734,
+      "mask_pixels": 15674,
+      "frame_points_raw": 15087,
+      "frame_points_after_cluster": 15087,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.526713,
+      "mask_pixels": 15575,
+      "frame_points_raw": 14973,
+      "frame_points_after_cluster": 14973,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.562613,
+      "mask_pixels": 15249,
+      "frame_points_raw": 14711,
+      "frame_points_after_cluster": 14711,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.594685,
+      "mask_pixels": 15411,
+      "frame_points_raw": 15045,
+      "frame_points_after_cluster": 15045,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.626675,
+      "mask_pixels": 14983,
+      "frame_points_raw": 14718,
+      "frame_points_after_cluster": 14718,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.662951,
+      "mask_pixels": 15419,
+      "frame_points_raw": 14796,
+      "frame_points_after_cluster": 14796,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.694797,
+      "mask_pixels": 14764,
+      "frame_points_raw": 14319,
+      "frame_points_after_cluster": 14319,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.726774,
+      "mask_pixels": 14889,
+      "frame_points_raw": 14690,
+      "frame_points_after_cluster": 14690,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.762799,
+      "mask_pixels": 14617,
+      "frame_points_raw": 14396,
+      "frame_points_after_cluster": 14396,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.794951,
+      "mask_pixels": 14199,
+      "frame_points_raw": 12469,
+      "frame_points_after_cluster": 12469,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.83081,
+      "mask_pixels": 14649,
+      "frame_points_raw": 14125,
+      "frame_points_after_cluster": 14125,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.862804,
+      "mask_pixels": 14507,
+      "frame_points_raw": 14059,
+      "frame_points_after_cluster": 14059,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.894792,
+      "mask_pixels": 14228,
+      "frame_points_raw": 13430,
+      "frame_points_after_cluster": 13430,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.930676,
+      "mask_pixels": 14133,
+      "frame_points_raw": 13540,
+      "frame_points_after_cluster": 13540,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.962765,
+      "mask_pixels": 14297,
+      "frame_points_raw": 13568,
+      "frame_points_after_cluster": 13568,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848055.994709,
+      "mask_pixels": 13805,
+      "frame_points_raw": 13209,
+      "frame_points_after_cluster": 13209,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.030693,
+      "mask_pixels": 14033,
+      "frame_points_raw": 13523,
+      "frame_points_after_cluster": 13523,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.062776,
+      "mask_pixels": 13845,
+      "frame_points_raw": 13180,
+      "frame_points_after_cluster": 13180,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.098792,
+      "mask_pixels": 13951,
+      "frame_points_raw": 13136,
+      "frame_points_after_cluster": 13136,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.130649,
+      "mask_pixels": 13899,
+      "frame_points_raw": 13341,
+      "frame_points_after_cluster": 13341,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.162731,
+      "mask_pixels": 13914,
+      "frame_points_raw": 13164,
+      "frame_points_after_cluster": 13164,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.198744,
+      "mask_pixels": 14043,
+      "frame_points_raw": 13539,
+      "frame_points_after_cluster": 13539,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.230727,
+      "mask_pixels": 13676,
+      "frame_points_raw": 13417,
+      "frame_points_after_cluster": 13417,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.263915,
+      "mask_pixels": 13387,
+      "frame_points_raw": 12952,
+      "frame_points_after_cluster": 12952,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.298771,
+      "mask_pixels": 13107,
+      "frame_points_raw": 12898,
+      "frame_points_after_cluster": 12898,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.330676,
+      "mask_pixels": 13409,
+      "frame_points_raw": 13009,
+      "frame_points_after_cluster": 13009,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.366737,
+      "mask_pixels": 13328,
+      "frame_points_raw": 12831,
+      "frame_points_after_cluster": 12831,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.398744,
+      "mask_pixels": 12958,
+      "frame_points_raw": 12840,
+      "frame_points_after_cluster": 12840,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.43075,
+      "mask_pixels": 13248,
+      "frame_points_raw": 13187,
+      "frame_points_after_cluster": 13187,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.46683,
+      "mask_pixels": 12762,
+      "frame_points_raw": 12631,
+      "frame_points_after_cluster": 12631,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.498895,
+      "mask_pixels": 12768,
+      "frame_points_raw": 12718,
+      "frame_points_after_cluster": 12718,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.534778,
+      "mask_pixels": 12871,
+      "frame_points_raw": 12727,
+      "frame_points_after_cluster": 12727,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.566729,
+      "mask_pixels": 12536,
+      "frame_points_raw": 12310,
+      "frame_points_after_cluster": 12310,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.598948,
+      "mask_pixels": 12393,
+      "frame_points_raw": 12222,
+      "frame_points_after_cluster": 12222,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.634801,
+      "mask_pixels": 13085,
+      "frame_points_raw": 12915,
+      "frame_points_after_cluster": 12915,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.666759,
+      "mask_pixels": 12969,
+      "frame_points_raw": 12790,
+      "frame_points_after_cluster": 12790,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.698889,
+      "mask_pixels": 13512,
+      "frame_points_raw": 13049,
+      "frame_points_after_cluster": 13049,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.734784,
+      "mask_pixels": 13643,
+      "frame_points_raw": 13239,
+      "frame_points_after_cluster": 13239,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.766724,
+      "mask_pixels": 13675,
+      "frame_points_raw": 13187,
+      "frame_points_after_cluster": 13187,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.802861,
+      "mask_pixels": 12985,
+      "frame_points_raw": 12682,
+      "frame_points_after_cluster": 12682,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.83498,
+      "mask_pixels": 13106,
+      "frame_points_raw": 12420,
+      "frame_points_after_cluster": 12420,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.866661,
+      "mask_pixels": 13127,
+      "frame_points_raw": 12584,
+      "frame_points_after_cluster": 12584,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.902748,
+      "mask_pixels": 12892,
+      "frame_points_raw": 12502,
+      "frame_points_after_cluster": 12502,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.934715,
+      "mask_pixels": 12843,
+      "frame_points_raw": 12317,
+      "frame_points_after_cluster": 12317,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848056.966788,
+      "mask_pixels": 13028,
+      "frame_points_raw": 11993,
+      "frame_points_after_cluster": 11993,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.002703,
+      "mask_pixels": 13187,
+      "frame_points_raw": 12327,
+      "frame_points_after_cluster": 12327,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.034763,
+      "mask_pixels": 12962,
+      "frame_points_raw": 12506,
+      "frame_points_after_cluster": 12506,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.070964,
+      "mask_pixels": 12760,
+      "frame_points_raw": 11968,
+      "frame_points_after_cluster": 11968,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.102757,
+      "mask_pixels": 12829,
+      "frame_points_raw": 11622,
+      "frame_points_after_cluster": 11622,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.134714,
+      "mask_pixels": 12838,
+      "frame_points_raw": 12395,
+      "frame_points_after_cluster": 12395,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.170739,
+      "mask_pixels": 13130,
+      "frame_points_raw": 12145,
+      "frame_points_after_cluster": 12145,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.202641,
+      "mask_pixels": 13291,
+      "frame_points_raw": 11926,
+      "frame_points_after_cluster": 11926,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.234679,
+      "mask_pixels": 12528,
+      "frame_points_raw": 11751,
+      "frame_points_after_cluster": 11751,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.270814,
+      "mask_pixels": 12845,
+      "frame_points_raw": 11989,
+      "frame_points_after_cluster": 11989,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.30286,
+      "mask_pixels": 12745,
+      "frame_points_raw": 11882,
+      "frame_points_after_cluster": 11882,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.338756,
+      "mask_pixels": 12407,
+      "frame_points_raw": 11516,
+      "frame_points_after_cluster": 11516,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.370841,
+      "mask_pixels": 12542,
+      "frame_points_raw": 11681,
+      "frame_points_after_cluster": 11681,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.402722,
+      "mask_pixels": 11783,
+      "frame_points_raw": 10865,
+      "frame_points_after_cluster": 10865,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.43887,
+      "mask_pixels": 11993,
+      "frame_points_raw": 11059,
+      "frame_points_after_cluster": 11059,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.470699,
+      "mask_pixels": 11931,
+      "frame_points_raw": 11664,
+      "frame_points_after_cluster": 11664,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.50672,
+      "mask_pixels": 12390,
+      "frame_points_raw": 11513,
+      "frame_points_after_cluster": 11513,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.538788,
+      "mask_pixels": 11929,
+      "frame_points_raw": 10944,
+      "frame_points_after_cluster": 10944,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.571069,
+      "mask_pixels": 11711,
+      "frame_points_raw": 11312,
+      "frame_points_after_cluster": 11312,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.606668,
+      "mask_pixels": 11847,
+      "frame_points_raw": 11571,
+      "frame_points_after_cluster": 11571,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.638819,
+      "mask_pixels": 12230,
+      "frame_points_raw": 11821,
+      "frame_points_after_cluster": 11821,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.670943,
+      "mask_pixels": 11707,
+      "frame_points_raw": 11275,
+      "frame_points_after_cluster": 11275,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.706823,
+      "mask_pixels": 11351,
+      "frame_points_raw": 11293,
+      "frame_points_after_cluster": 11293,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.73889,
+      "mask_pixels": 11191,
+      "frame_points_raw": 10521,
+      "frame_points_after_cluster": 10521,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.774986,
+      "mask_pixels": 11243,
+      "frame_points_raw": 10716,
+      "frame_points_after_cluster": 10716,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.806842,
+      "mask_pixels": 11376,
+      "frame_points_raw": 11078,
+      "frame_points_after_cluster": 11078,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.83876,
+      "mask_pixels": 11184,
+      "frame_points_raw": 10648,
+      "frame_points_after_cluster": 10648,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.874817,
+      "mask_pixels": 11285,
+      "frame_points_raw": 10510,
+      "frame_points_after_cluster": 10510,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.906831,
+      "mask_pixels": 10591,
+      "frame_points_raw": 10194,
+      "frame_points_after_cluster": 10194,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.938847,
+      "mask_pixels": 11433,
+      "frame_points_raw": 10336,
+      "frame_points_after_cluster": 10336,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848057.975316,
+      "mask_pixels": 11457,
+      "frame_points_raw": 10780,
+      "frame_points_after_cluster": 10780,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.006833,
+      "mask_pixels": 11456,
+      "frame_points_raw": 10332,
+      "frame_points_after_cluster": 10332,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.042753,
+      "mask_pixels": 11410,
+      "frame_points_raw": 10584,
+      "frame_points_after_cluster": 10584,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.07597,
+      "mask_pixels": 11377,
+      "frame_points_raw": 10218,
+      "frame_points_after_cluster": 10218,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.10679,
+      "mask_pixels": 11470,
+      "frame_points_raw": 9881,
+      "frame_points_after_cluster": 9881,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.142699,
+      "mask_pixels": 12011,
+      "frame_points_raw": 9913,
+      "frame_points_after_cluster": 9913,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.174743,
+      "mask_pixels": 11728,
+      "frame_points_raw": 8731,
+      "frame_points_after_cluster": 8731,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.207081,
+      "mask_pixels": 11793,
+      "frame_points_raw": 8137,
+      "frame_points_after_cluster": 8137,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.24274,
+      "mask_pixels": 11321,
+      "frame_points_raw": 6826,
+      "frame_points_after_cluster": 6826,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.274694,
+      "mask_pixels": 10146,
+      "frame_points_raw": 5488,
+      "frame_points_after_cluster": 5488,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.310701,
+      "mask_pixels": 9979,
+      "frame_points_raw": 4642,
+      "frame_points_after_cluster": 4642,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.343169,
+      "mask_pixels": 10164,
+      "frame_points_raw": 5592,
+      "frame_points_after_cluster": 5592,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.374887,
+      "mask_pixels": 9990,
+      "frame_points_raw": 5237,
+      "frame_points_after_cluster": 5237,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.410669,
+      "mask_pixels": 9914,
+      "frame_points_raw": 5236,
+      "frame_points_after_cluster": 5236,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.442794,
+      "mask_pixels": 10673,
+      "frame_points_raw": 5437,
+      "frame_points_after_cluster": 5437,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.474732,
+      "mask_pixels": 9464,
+      "frame_points_raw": 5375,
+      "frame_points_after_cluster": 5375,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.54297,
+      "mask_pixels": 9357,
+      "frame_points_raw": 5186,
+      "frame_points_after_cluster": 5186,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.578948,
+      "mask_pixels": 9336,
+      "frame_points_raw": 4765,
+      "frame_points_after_cluster": 4765,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.610842,
+      "mask_pixels": 9713,
+      "frame_points_raw": 5040,
+      "frame_points_after_cluster": 5040,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.64306,
+      "mask_pixels": 9866,
+      "frame_points_raw": 4837,
+      "frame_points_after_cluster": 4837,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.67873,
+      "mask_pixels": 9454,
+      "frame_points_raw": 5178,
+      "frame_points_after_cluster": 5178,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.710728,
+      "mask_pixels": 10253,
+      "frame_points_raw": 5969,
+      "frame_points_after_cluster": 5969,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.746819,
+      "mask_pixels": 7661,
+      "frame_points_raw": 5426,
+      "frame_points_after_cluster": 5426,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.77871,
+      "mask_pixels": 9883,
+      "frame_points_raw": 5133,
+      "frame_points_after_cluster": 5133,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.810874,
+      "mask_pixels": 9536,
+      "frame_points_raw": 5343,
+      "frame_points_after_cluster": 5343,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.846829,
+      "mask_pixels": 9726,
+      "frame_points_raw": 4640,
+      "frame_points_after_cluster": 4640,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.879577,
+      "mask_pixels": 10575,
+      "frame_points_raw": 5836,
+      "frame_points_after_cluster": 5836,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.946807,
+      "mask_pixels": 10150,
+      "frame_points_raw": 5305,
+      "frame_points_after_cluster": 5305,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848058.978865,
+      "mask_pixels": 10133,
+      "frame_points_raw": 4774,
+      "frame_points_after_cluster": 4774,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.01466,
+      "mask_pixels": 10228,
+      "frame_points_raw": 5547,
+      "frame_points_after_cluster": 5547,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.046707,
+      "mask_pixels": 10185,
+      "frame_points_raw": 5192,
+      "frame_points_after_cluster": 5192,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.078771,
+      "mask_pixels": 10668,
+      "frame_points_raw": 5256,
+      "frame_points_after_cluster": 5256,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.114675,
+      "mask_pixels": 10531,
+      "frame_points_raw": 4442,
+      "frame_points_after_cluster": 4442,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.146706,
+      "mask_pixels": 10678,
+      "frame_points_raw": 6222,
+      "frame_points_after_cluster": 6222,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.178722,
+      "mask_pixels": 10406,
+      "frame_points_raw": 5110,
+      "frame_points_after_cluster": 5110,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.214738,
+      "mask_pixels": 10380,
+      "frame_points_raw": 5455,
+      "frame_points_after_cluster": 5455,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.246762,
+      "mask_pixels": 10399,
+      "frame_points_raw": 6507,
+      "frame_points_after_cluster": 6507,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.282693,
+      "mask_pixels": 10379,
+      "frame_points_raw": 7122,
+      "frame_points_after_cluster": 7122,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.314667,
+      "mask_pixels": 10386,
+      "frame_points_raw": 8453,
+      "frame_points_after_cluster": 8453,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.346758,
+      "mask_pixels": 10158,
+      "frame_points_raw": 8571,
+      "frame_points_after_cluster": 8571,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.382694,
+      "mask_pixels": 9206,
+      "frame_points_raw": 8041,
+      "frame_points_after_cluster": 8041,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.414736,
+      "mask_pixels": 10112,
+      "frame_points_raw": 8483,
+      "frame_points_after_cluster": 8483,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.446788,
+      "mask_pixels": 10237,
+      "frame_points_raw": 9046,
+      "frame_points_after_cluster": 9046,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.482693,
+      "mask_pixels": 9866,
+      "frame_points_raw": 8860,
+      "frame_points_after_cluster": 8860,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.514652,
+      "mask_pixels": 9976,
+      "frame_points_raw": 8575,
+      "frame_points_after_cluster": 8575,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.550754,
+      "mask_pixels": 9687,
+      "frame_points_raw": 8034,
+      "frame_points_after_cluster": 8034,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.582695,
+      "mask_pixels": 9084,
+      "frame_points_raw": 8342,
+      "frame_points_after_cluster": 8342,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.614734,
+      "mask_pixels": 8946,
+      "frame_points_raw": 7651,
+      "frame_points_after_cluster": 7651,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.650722,
+      "mask_pixels": 9386,
+      "frame_points_raw": 7880,
+      "frame_points_after_cluster": 7880,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.682731,
+      "mask_pixels": 9328,
+      "frame_points_raw": 8083,
+      "frame_points_after_cluster": 8083,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.718703,
+      "mask_pixels": 8604,
+      "frame_points_raw": 8021,
+      "frame_points_after_cluster": 8021,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.750904,
+      "mask_pixels": 8403,
+      "frame_points_raw": 7470,
+      "frame_points_after_cluster": 7470,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.782774,
+      "mask_pixels": 8783,
+      "frame_points_raw": 7498,
+      "frame_points_after_cluster": 7498,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.818759,
+      "mask_pixels": 8798,
+      "frame_points_raw": 7898,
+      "frame_points_after_cluster": 7898,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.850685,
+      "mask_pixels": 8557,
+      "frame_points_raw": 7635,
+      "frame_points_after_cluster": 7635,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.88273,
+      "mask_pixels": 9262,
+      "frame_points_raw": 7863,
+      "frame_points_after_cluster": 7863,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.918755,
+      "mask_pixels": 9179,
+      "frame_points_raw": 7635,
+      "frame_points_after_cluster": 7635,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.950805,
+      "mask_pixels": 9180,
+      "frame_points_raw": 7139,
+      "frame_points_after_cluster": 7139,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848059.986776,
+      "mask_pixels": 8656,
+      "frame_points_raw": 7080,
+      "frame_points_after_cluster": 7080,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.01866,
+      "mask_pixels": 8447,
+      "frame_points_raw": 7651,
+      "frame_points_after_cluster": 7651,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.050701,
+      "mask_pixels": 8432,
+      "frame_points_raw": 7596,
+      "frame_points_after_cluster": 7596,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.086783,
+      "mask_pixels": 9301,
+      "frame_points_raw": 8250,
+      "frame_points_after_cluster": 8250,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.118813,
+      "mask_pixels": 8470,
+      "frame_points_raw": 7705,
+      "frame_points_after_cluster": 7705,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.1508,
+      "mask_pixels": 9059,
+      "frame_points_raw": 8087,
+      "frame_points_after_cluster": 8087,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.186872,
+      "mask_pixels": 9105,
+      "frame_points_raw": 7924,
+      "frame_points_after_cluster": 7924,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.218851,
+      "mask_pixels": 8347,
+      "frame_points_raw": 7460,
+      "frame_points_after_cluster": 7460,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.254799,
+      "mask_pixels": 9405,
+      "frame_points_raw": 8460,
+      "frame_points_after_cluster": 8460,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.287466,
+      "mask_pixels": 8457,
+      "frame_points_raw": 7781,
+      "frame_points_after_cluster": 7781,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.318914,
+      "mask_pixels": 8941,
+      "frame_points_raw": 6916,
+      "frame_points_after_cluster": 6916,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.354641,
+      "mask_pixels": 9427,
+      "frame_points_raw": 7649,
+      "frame_points_after_cluster": 7649,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.387254,
+      "mask_pixels": 8582,
+      "frame_points_raw": 7833,
+      "frame_points_after_cluster": 7833,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.418639,
+      "mask_pixels": 8928,
+      "frame_points_raw": 7685,
+      "frame_points_after_cluster": 7685,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.454775,
+      "mask_pixels": 8820,
+      "frame_points_raw": 7963,
+      "frame_points_after_cluster": 7963,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.486697,
+      "mask_pixels": 8606,
+      "frame_points_raw": 7830,
+      "frame_points_after_cluster": 7830,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.522925,
+      "mask_pixels": 9380,
+      "frame_points_raw": 8057,
+      "frame_points_after_cluster": 8057,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.55471,
+      "mask_pixels": 9285,
+      "frame_points_raw": 8283,
+      "frame_points_after_cluster": 8283,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.586692,
+      "mask_pixels": 9742,
+      "frame_points_raw": 8639,
+      "frame_points_after_cluster": 8639,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.622697,
+      "mask_pixels": 9271,
+      "frame_points_raw": 8096,
+      "frame_points_after_cluster": 8096,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.656087,
+      "mask_pixels": 9418,
+      "frame_points_raw": 8108,
+      "frame_points_after_cluster": 8108,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.687258,
+      "mask_pixels": 9430,
+      "frame_points_raw": 8115,
+      "frame_points_after_cluster": 8115,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.723165,
+      "mask_pixels": 9263,
+      "frame_points_raw": 8439,
+      "frame_points_after_cluster": 8439,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.757863,
+      "mask_pixels": 9158,
+      "frame_points_raw": 8162,
+      "frame_points_after_cluster": 8162,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.79092,
+      "mask_pixels": 9240,
+      "frame_points_raw": 8099,
+      "frame_points_after_cluster": 8099,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.823967,
+      "mask_pixels": 9740,
+      "frame_points_raw": 8533,
+      "frame_points_after_cluster": 8533,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.862432,
+      "mask_pixels": 9617,
+      "frame_points_raw": 8641,
+      "frame_points_after_cluster": 8641,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.923126,
+      "mask_pixels": 10314,
+      "frame_points_raw": 7749,
+      "frame_points_after_cluster": 7749,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.960845,
+      "mask_pixels": 10307,
+      "frame_points_raw": 7660,
+      "frame_points_after_cluster": 7660,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848060.996857,
+      "mask_pixels": 10103,
+      "frame_points_raw": 8528,
+      "frame_points_after_cluster": 8528,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.030587,
+      "mask_pixels": 9888,
+      "frame_points_raw": 8730,
+      "frame_points_after_cluster": 8730,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.062246,
+      "mask_pixels": 10458,
+      "frame_points_raw": 8705,
+      "frame_points_after_cluster": 8705,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.100583,
+      "mask_pixels": 10031,
+      "frame_points_raw": 8786,
+      "frame_points_after_cluster": 8786,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.129837,
+      "mask_pixels": 10159,
+      "frame_points_raw": 8741,
+      "frame_points_after_cluster": 8741,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.197947,
+      "mask_pixels": 9759,
+      "frame_points_raw": 8862,
+      "frame_points_after_cluster": 8862,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.226804,
+      "mask_pixels": 9529,
+      "frame_points_raw": 8630,
+      "frame_points_after_cluster": 8630,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.259408,
+      "mask_pixels": 9662,
+      "frame_points_raw": 8874,
+      "frame_points_after_cluster": 8874,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.290885,
+      "mask_pixels": 9946,
+      "frame_points_raw": 9027,
+      "frame_points_after_cluster": 9027,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.326612,
+      "mask_pixels": 10185,
+      "frame_points_raw": 9401,
+      "frame_points_after_cluster": 9401,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.358867,
+      "mask_pixels": 9871,
+      "frame_points_raw": 9268,
+      "frame_points_after_cluster": 9268,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.390845,
+      "mask_pixels": 9767,
+      "frame_points_raw": 9107,
+      "frame_points_after_cluster": 9107,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.426913,
+      "mask_pixels": 10239,
+      "frame_points_raw": 8746,
+      "frame_points_after_cluster": 8746,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.458837,
+      "mask_pixels": 10121,
+      "frame_points_raw": 8835,
+      "frame_points_after_cluster": 8835,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.494657,
+      "mask_pixels": 10262,
+      "frame_points_raw": 9327,
+      "frame_points_after_cluster": 9327,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.526736,
+      "mask_pixels": 10129,
+      "frame_points_raw": 9504,
+      "frame_points_after_cluster": 9504,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.558821,
+      "mask_pixels": 10276,
+      "frame_points_raw": 9512,
+      "frame_points_after_cluster": 9512,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.59475,
+      "mask_pixels": 10443,
+      "frame_points_raw": 9400,
+      "frame_points_after_cluster": 9400,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.626731,
+      "mask_pixels": 9846,
+      "frame_points_raw": 9085,
+      "frame_points_after_cluster": 9085,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.658831,
+      "mask_pixels": 9960,
+      "frame_points_raw": 9562,
+      "frame_points_after_cluster": 9562,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.694894,
+      "mask_pixels": 9811,
+      "frame_points_raw": 9609,
+      "frame_points_after_cluster": 9609,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.726726,
+      "mask_pixels": 9859,
+      "frame_points_raw": 9117,
+      "frame_points_after_cluster": 9117,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.762815,
+      "mask_pixels": 10105,
+      "frame_points_raw": 9546,
+      "frame_points_after_cluster": 9546,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.794816,
+      "mask_pixels": 10402,
+      "frame_points_raw": 9436,
+      "frame_points_after_cluster": 9436,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.82674,
+      "mask_pixels": 9895,
+      "frame_points_raw": 9051,
+      "frame_points_after_cluster": 9051,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.862883,
+      "mask_pixels": 9919,
+      "frame_points_raw": 9221,
+      "frame_points_after_cluster": 9221,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.894834,
+      "mask_pixels": 9965,
+      "frame_points_raw": 9295,
+      "frame_points_after_cluster": 9295,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.930667,
+      "mask_pixels": 10109,
+      "frame_points_raw": 9347,
+      "frame_points_after_cluster": 9347,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.962828,
+      "mask_pixels": 10356,
+      "frame_points_raw": 9263,
+      "frame_points_after_cluster": 9263,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848061.997188,
+      "mask_pixels": 10091,
+      "frame_points_raw": 9406,
+      "frame_points_after_cluster": 9406,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.030704,
+      "mask_pixels": 10142,
+      "frame_points_raw": 9352,
+      "frame_points_after_cluster": 9352,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.063265,
+      "mask_pixels": 10069,
+      "frame_points_raw": 9394,
+      "frame_points_after_cluster": 9394,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.094872,
+      "mask_pixels": 10297,
+      "frame_points_raw": 8652,
+      "frame_points_after_cluster": 8652,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.130773,
+      "mask_pixels": 10220,
+      "frame_points_raw": 8591,
+      "frame_points_after_cluster": 8591,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.163385,
+      "mask_pixels": 10469,
+      "frame_points_raw": 8933,
+      "frame_points_after_cluster": 8933,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.198718,
+      "mask_pixels": 10427,
+      "frame_points_raw": 8582,
+      "frame_points_after_cluster": 8582,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.23075,
+      "mask_pixels": 11014,
+      "frame_points_raw": 9479,
+      "frame_points_after_cluster": 9479,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.262814,
+      "mask_pixels": 10696,
+      "frame_points_raw": 9085,
+      "frame_points_after_cluster": 9085,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.299276,
+      "mask_pixels": 11198,
+      "frame_points_raw": 9878,
+      "frame_points_after_cluster": 9878,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.330839,
+      "mask_pixels": 10806,
+      "frame_points_raw": 10092,
+      "frame_points_after_cluster": 10092,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.362763,
+      "mask_pixels": 10863,
+      "frame_points_raw": 10110,
+      "frame_points_after_cluster": 10110,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.398825,
+      "mask_pixels": 11028,
+      "frame_points_raw": 10555,
+      "frame_points_after_cluster": 10555,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.430832,
+      "mask_pixels": 10965,
+      "frame_points_raw": 9977,
+      "frame_points_after_cluster": 9977,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.466855,
+      "mask_pixels": 11353,
+      "frame_points_raw": 10395,
+      "frame_points_after_cluster": 10395,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.498723,
+      "mask_pixels": 11402,
+      "frame_points_raw": 10700,
+      "frame_points_after_cluster": 10700,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.530743,
+      "mask_pixels": 11404,
+      "frame_points_raw": 10290,
+      "frame_points_after_cluster": 10290,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.566929,
+      "mask_pixels": 11620,
+      "frame_points_raw": 10422,
+      "frame_points_after_cluster": 10422,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.598817,
+      "mask_pixels": 11408,
+      "frame_points_raw": 10244,
+      "frame_points_after_cluster": 10244,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.630793,
+      "mask_pixels": 11767,
+      "frame_points_raw": 10536,
+      "frame_points_after_cluster": 10536,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.66674,
+      "mask_pixels": 12186,
+      "frame_points_raw": 10931,
+      "frame_points_after_cluster": 10931,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.69872,
+      "mask_pixels": 11980,
+      "frame_points_raw": 9957,
+      "frame_points_after_cluster": 9957,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.734924,
+      "mask_pixels": 11992,
+      "frame_points_raw": 9910,
+      "frame_points_after_cluster": 9910,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.766819,
+      "mask_pixels": 11926,
+      "frame_points_raw": 10494,
+      "frame_points_after_cluster": 10494,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.798717,
+      "mask_pixels": 12126,
+      "frame_points_raw": 10276,
+      "frame_points_after_cluster": 10276,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.834828,
+      "mask_pixels": 11764,
+      "frame_points_raw": 10339,
+      "frame_points_after_cluster": 10339,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.866781,
+      "mask_pixels": 11571,
+      "frame_points_raw": 10443,
+      "frame_points_after_cluster": 10443,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.899075,
+      "mask_pixels": 12450,
+      "frame_points_raw": 10688,
+      "frame_points_after_cluster": 10688,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.934962,
+      "mask_pixels": 12352,
+      "frame_points_raw": 10500,
+      "frame_points_after_cluster": 10500,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848062.96693,
+      "mask_pixels": 12453,
+      "frame_points_raw": 10810,
+      "frame_points_after_cluster": 10810,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.002905,
+      "mask_pixels": 12236,
+      "frame_points_raw": 10252,
+      "frame_points_after_cluster": 10252,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.034972,
+      "mask_pixels": 12311,
+      "frame_points_raw": 10079,
+      "frame_points_after_cluster": 10079,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.066737,
+      "mask_pixels": 12200,
+      "frame_points_raw": 10086,
+      "frame_points_after_cluster": 10086,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.102822,
+      "mask_pixels": 12424,
+      "frame_points_raw": 9884,
+      "frame_points_after_cluster": 9884,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.135045,
+      "mask_pixels": 12289,
+      "frame_points_raw": 9828,
+      "frame_points_after_cluster": 9828,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.170739,
+      "mask_pixels": 12504,
+      "frame_points_raw": 9518,
+      "frame_points_after_cluster": 9518,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.202662,
+      "mask_pixels": 12710,
+      "frame_points_raw": 8137,
+      "frame_points_after_cluster": 8137,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.23499,
+      "mask_pixels": 13002,
+      "frame_points_raw": 9322,
+      "frame_points_after_cluster": 9322,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.2708,
+      "mask_pixels": 13038,
+      "frame_points_raw": 9477,
+      "frame_points_after_cluster": 9477,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.302788,
+      "mask_pixels": 13030,
+      "frame_points_raw": 8825,
+      "frame_points_after_cluster": 8825,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.334854,
+      "mask_pixels": 13031,
+      "frame_points_raw": 8589,
+      "frame_points_after_cluster": 8589,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.370653,
+      "mask_pixels": 12782,
+      "frame_points_raw": 9615,
+      "frame_points_after_cluster": 9615,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.402698,
+      "mask_pixels": 12898,
+      "frame_points_raw": 10506,
+      "frame_points_after_cluster": 10506,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.439276,
+      "mask_pixels": 12884,
+      "frame_points_raw": 10519,
+      "frame_points_after_cluster": 10519,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.470742,
+      "mask_pixels": 13078,
+      "frame_points_raw": 11094,
+      "frame_points_after_cluster": 11094,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.502776,
+      "mask_pixels": 12750,
+      "frame_points_raw": 11107,
+      "frame_points_after_cluster": 11107,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.541802,
+      "mask_pixels": 12804,
+      "frame_points_raw": 10772,
+      "frame_points_after_cluster": 10772,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.577805,
+      "mask_pixels": 13223,
+      "frame_points_raw": 11427,
+      "frame_points_after_cluster": 11427,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.609732,
+      "mask_pixels": 12810,
+      "frame_points_raw": 11224,
+      "frame_points_after_cluster": 11224,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.643039,
+      "mask_pixels": 13236,
+      "frame_points_raw": 11225,
+      "frame_points_after_cluster": 11225,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.677955,
+      "mask_pixels": 12928,
+      "frame_points_raw": 11344,
+      "frame_points_after_cluster": 11344,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.70989,
+      "mask_pixels": 13019,
+      "frame_points_raw": 11466,
+      "frame_points_after_cluster": 11466,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.745768,
+      "mask_pixels": 13334,
+      "frame_points_raw": 10347,
+      "frame_points_after_cluster": 10347,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.777773,
+      "mask_pixels": 13171,
+      "frame_points_raw": 10773,
+      "frame_points_after_cluster": 10773,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.80984,
+      "mask_pixels": 13276,
+      "frame_points_raw": 10992,
+      "frame_points_after_cluster": 10992,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.845733,
+      "mask_pixels": 13296,
+      "frame_points_raw": 10951,
+      "frame_points_after_cluster": 10951,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.877902,
+      "mask_pixels": 13535,
+      "frame_points_raw": 11005,
+      "frame_points_after_cluster": 11005,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.913769,
+      "mask_pixels": 13563,
+      "frame_points_raw": 11443,
+      "frame_points_after_cluster": 11443,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.945802,
+      "mask_pixels": 13682,
+      "frame_points_raw": 11200,
+      "frame_points_after_cluster": 11200,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848063.977856,
+      "mask_pixels": 13742,
+      "frame_points_raw": 10911,
+      "frame_points_after_cluster": 10911,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.013951,
+      "mask_pixels": 13628,
+      "frame_points_raw": 10621,
+      "frame_points_after_cluster": 10621,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.045815,
+      "mask_pixels": 14155,
+      "frame_points_raw": 10892,
+      "frame_points_after_cluster": 10892,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.081699,
+      "mask_pixels": 13759,
+      "frame_points_raw": 10343,
+      "frame_points_after_cluster": 10343,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.113685,
+      "mask_pixels": 13706,
+      "frame_points_raw": 10730,
+      "frame_points_after_cluster": 10730,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.145823,
+      "mask_pixels": 14101,
+      "frame_points_raw": 10388,
+      "frame_points_after_cluster": 10388,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.181846,
+      "mask_pixels": 14231,
+      "frame_points_raw": 10238,
+      "frame_points_after_cluster": 10238,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.213863,
+      "mask_pixels": 14465,
+      "frame_points_raw": 10846,
+      "frame_points_after_cluster": 10846,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.249771,
+      "mask_pixels": 14582,
+      "frame_points_raw": 11285,
+      "frame_points_after_cluster": 11285,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.282977,
+      "mask_pixels": 14442,
+      "frame_points_raw": 10655,
+      "frame_points_after_cluster": 10655,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.313795,
+      "mask_pixels": 14412,
+      "frame_points_raw": 10968,
+      "frame_points_after_cluster": 10968,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.34979,
+      "mask_pixels": 14817,
+      "frame_points_raw": 11637,
+      "frame_points_after_cluster": 11637,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.382619,
+      "mask_pixels": 14605,
+      "frame_points_raw": 11375,
+      "frame_points_after_cluster": 11375,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.418063,
+      "mask_pixels": 15331,
+      "frame_points_raw": 11649,
+      "frame_points_after_cluster": 11649,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.449767,
+      "mask_pixels": 15895,
+      "frame_points_raw": 12657,
+      "frame_points_after_cluster": 12657,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.481773,
+      "mask_pixels": 15926,
+      "frame_points_raw": 12021,
+      "frame_points_after_cluster": 12021,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.51801,
+      "mask_pixels": 14963,
+      "frame_points_raw": 12058,
+      "frame_points_after_cluster": 12058,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.549704,
+      "mask_pixels": 15055,
+      "frame_points_raw": 11893,
+      "frame_points_after_cluster": 11893,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.581714,
+      "mask_pixels": 15525,
+      "frame_points_raw": 12945,
+      "frame_points_after_cluster": 12945,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.617693,
+      "mask_pixels": 15142,
+      "frame_points_raw": 12376,
+      "frame_points_after_cluster": 12376,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.649724,
+      "mask_pixels": 15282,
+      "frame_points_raw": 12832,
+      "frame_points_after_cluster": 12832,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.685821,
+      "mask_pixels": 15440,
+      "frame_points_raw": 12703,
+      "frame_points_after_cluster": 12703,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.749892,
+      "mask_pixels": 15564,
+      "frame_points_raw": 13411,
+      "frame_points_after_cluster": 13411,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.778913,
+      "mask_pixels": 15217,
+      "frame_points_raw": 12981,
+      "frame_points_after_cluster": 12981,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.810737,
+      "mask_pixels": 15269,
+      "frame_points_raw": 12552,
+      "frame_points_after_cluster": 12552,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.842702,
+      "mask_pixels": 15164,
+      "frame_points_raw": 12751,
+      "frame_points_after_cluster": 12751,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.87885,
+      "mask_pixels": 15468,
+      "frame_points_raw": 12608,
+      "frame_points_after_cluster": 12608,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.910832,
+      "mask_pixels": 15667,
+      "frame_points_raw": 12859,
+      "frame_points_after_cluster": 12859,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.94685,
+      "mask_pixels": 15997,
+      "frame_points_raw": 13282,
+      "frame_points_after_cluster": 13282,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848064.978809,
+      "mask_pixels": 16085,
+      "frame_points_raw": 13000,
+      "frame_points_after_cluster": 13000,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.01077,
+      "mask_pixels": 15886,
+      "frame_points_raw": 13200,
+      "frame_points_after_cluster": 13200,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.046751,
+      "mask_pixels": 15764,
+      "frame_points_raw": 13453,
+      "frame_points_after_cluster": 13453,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.078713,
+      "mask_pixels": 16250,
+      "frame_points_raw": 13262,
+      "frame_points_after_cluster": 13262,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.110686,
+      "mask_pixels": 16149,
+      "frame_points_raw": 13369,
+      "frame_points_after_cluster": 13369,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.146689,
+      "mask_pixels": 16618,
+      "frame_points_raw": 13725,
+      "frame_points_after_cluster": 13725,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.178847,
+      "mask_pixels": 16293,
+      "frame_points_raw": 13588,
+      "frame_points_after_cluster": 13588,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.21476,
+      "mask_pixels": 16115,
+      "frame_points_raw": 13129,
+      "frame_points_after_cluster": 13129,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.246768,
+      "mask_pixels": 16036,
+      "frame_points_raw": 13544,
+      "frame_points_after_cluster": 13544,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.278735,
+      "mask_pixels": 16563,
+      "frame_points_raw": 13788,
+      "frame_points_after_cluster": 13788,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.314761,
+      "mask_pixels": 16610,
+      "frame_points_raw": 13085,
+      "frame_points_after_cluster": 13085,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.346776,
+      "mask_pixels": 16590,
+      "frame_points_raw": 13348,
+      "frame_points_after_cluster": 13348,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.382824,
+      "mask_pixels": 16863,
+      "frame_points_raw": 13466,
+      "frame_points_after_cluster": 13466,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.414914,
+      "mask_pixels": 16151,
+      "frame_points_raw": 12740,
+      "frame_points_after_cluster": 12740,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.446728,
+      "mask_pixels": 15809,
+      "frame_points_raw": 12860,
+      "frame_points_after_cluster": 12860,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.48283,
+      "mask_pixels": 16066,
+      "frame_points_raw": 13369,
+      "frame_points_after_cluster": 13369,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.514745,
+      "mask_pixels": 15007,
+      "frame_points_raw": 12677,
+      "frame_points_after_cluster": 12677,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.546916,
+      "mask_pixels": 15101,
+      "frame_points_raw": 12496,
+      "frame_points_after_cluster": 12496,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.582742,
+      "mask_pixels": 15504,
+      "frame_points_raw": 12903,
+      "frame_points_after_cluster": 12903,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.614763,
+      "mask_pixels": 15929,
+      "frame_points_raw": 12739,
+      "frame_points_after_cluster": 12739,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.682873,
+      "mask_pixels": 15629,
+      "frame_points_raw": 12371,
+      "frame_points_after_cluster": 12371,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.714808,
+      "mask_pixels": 15915,
+      "frame_points_raw": 12205,
+      "frame_points_after_cluster": 12205,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.750674,
+      "mask_pixels": 15339,
+      "frame_points_raw": 11974,
+      "frame_points_after_cluster": 11974,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.782722,
+      "mask_pixels": 15006,
+      "frame_points_raw": 12289,
+      "frame_points_after_cluster": 12289,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.814742,
+      "mask_pixels": 15477,
+      "frame_points_raw": 12455,
+      "frame_points_after_cluster": 12455,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.850746,
+      "mask_pixels": 17037,
+      "frame_points_raw": 12555,
+      "frame_points_after_cluster": 12555,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.918698,
+      "mask_pixels": 15563,
+      "frame_points_raw": 12201,
+      "frame_points_after_cluster": 12201,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.950762,
+      "mask_pixels": 15924,
+      "frame_points_raw": 12086,
+      "frame_points_after_cluster": 12086,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848065.982774,
+      "mask_pixels": 14823,
+      "frame_points_raw": 11331,
+      "frame_points_after_cluster": 11331,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.018773,
+      "mask_pixels": 14730,
+      "frame_points_raw": 11402,
+      "frame_points_after_cluster": 11402,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.050717,
+      "mask_pixels": 14380,
+      "frame_points_raw": 11139,
+      "frame_points_after_cluster": 11139,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.082818,
+      "mask_pixels": 14551,
+      "frame_points_raw": 10840,
+      "frame_points_after_cluster": 10840,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.118721,
+      "mask_pixels": 16250,
+      "frame_points_raw": 10002,
+      "frame_points_after_cluster": 10002,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.150964,
+      "mask_pixels": 15220,
+      "frame_points_raw": 10100,
+      "frame_points_after_cluster": 10100,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.186782,
+      "mask_pixels": 16432,
+      "frame_points_raw": 10781,
+      "frame_points_after_cluster": 10781,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.218688,
+      "mask_pixels": 15439,
+      "frame_points_raw": 9686,
+      "frame_points_after_cluster": 9686,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.250777,
+      "mask_pixels": 15400,
+      "frame_points_raw": 9977,
+      "frame_points_after_cluster": 9977,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.286736,
+      "mask_pixels": 16034,
+      "frame_points_raw": 9826,
+      "frame_points_after_cluster": 9826,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.318695,
+      "mask_pixels": 16155,
+      "frame_points_raw": 10082,
+      "frame_points_after_cluster": 10082,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.354797,
+      "mask_pixels": 16344,
+      "frame_points_raw": 9465,
+      "frame_points_after_cluster": 9465,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.386761,
+      "mask_pixels": 16150,
+      "frame_points_raw": 10053,
+      "frame_points_after_cluster": 10053,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.41882,
+      "mask_pixels": 16616,
+      "frame_points_raw": 9904,
+      "frame_points_after_cluster": 9904,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.454695,
+      "mask_pixels": 15629,
+      "frame_points_raw": 9273,
+      "frame_points_after_cluster": 9273,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.486874,
+      "mask_pixels": 16430,
+      "frame_points_raw": 9432,
+      "frame_points_after_cluster": 9432,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.522806,
+      "mask_pixels": 15104,
+      "frame_points_raw": 9063,
+      "frame_points_after_cluster": 9063,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.555107,
+      "mask_pixels": 14055,
+      "frame_points_raw": 8543,
+      "frame_points_after_cluster": 8543,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.586881,
+      "mask_pixels": 13968,
+      "frame_points_raw": 8785,
+      "frame_points_after_cluster": 8785,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.6235,
+      "mask_pixels": 13997,
+      "frame_points_raw": 9169,
+      "frame_points_after_cluster": 9169,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.655239,
+      "mask_pixels": 14397,
+      "frame_points_raw": 9200,
+      "frame_points_after_cluster": 9200,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.697724,
+      "mask_pixels": 14858,
+      "frame_points_raw": 9385,
+      "frame_points_after_cluster": 9385,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.732527,
+      "mask_pixels": 14540,
+      "frame_points_raw": 9235,
+      "frame_points_after_cluster": 9235,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.764415,
+      "mask_pixels": 14453,
+      "frame_points_raw": 9074,
+      "frame_points_after_cluster": 9074,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.795253,
+      "mask_pixels": 14473,
+      "frame_points_raw": 9155,
+      "frame_points_after_cluster": 9155,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.833355,
+      "mask_pixels": 13960,
+      "frame_points_raw": 8761,
+      "frame_points_after_cluster": 8761,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.862103,
+      "mask_pixels": 13751,
+      "frame_points_raw": 8575,
+      "frame_points_after_cluster": 8575,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.905023,
+      "mask_pixels": 14058,
+      "frame_points_raw": 8852,
+      "frame_points_after_cluster": 8852,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.930221,
+      "mask_pixels": 13851,
+      "frame_points_raw": 8692,
+      "frame_points_after_cluster": 8692,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848066.997936,
+      "mask_pixels": 14199,
+      "frame_points_raw": 9368,
+      "frame_points_after_cluster": 9368,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.023497,
+      "mask_pixels": 14200,
+      "frame_points_raw": 9221,
+      "frame_points_after_cluster": 9221,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.054702,
+      "mask_pixels": 14671,
+      "frame_points_raw": 9459,
+      "frame_points_after_cluster": 9459,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.09094,
+      "mask_pixels": 8106,
+      "frame_points_raw": 4645,
+      "frame_points_after_cluster": 4645,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.122963,
+      "mask_pixels": 13746,
+      "frame_points_raw": 8683,
+      "frame_points_after_cluster": 8683,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.158821,
+      "mask_pixels": 8001,
+      "frame_points_raw": 4545,
+      "frame_points_after_cluster": 4545,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.191143,
+      "mask_pixels": 13670,
+      "frame_points_raw": 8612,
+      "frame_points_after_cluster": 8612,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.222948,
+      "mask_pixels": 7729,
+      "frame_points_raw": 4609,
+      "frame_points_after_cluster": 4609,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.258733,
+      "mask_pixels": 13792,
+      "frame_points_raw": 8673,
+      "frame_points_after_cluster": 8673,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.322816,
+      "mask_pixels": 13482,
+      "frame_points_raw": 8821,
+      "frame_points_after_cluster": 8821,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.358674,
+      "mask_pixels": 14628,
+      "frame_points_raw": 9300,
+      "frame_points_after_cluster": 9300,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.390706,
+      "mask_pixels": 14678,
+      "frame_points_raw": 9930,
+      "frame_points_after_cluster": 9930,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.426869,
+      "mask_pixels": 14930,
+      "frame_points_raw": 10248,
+      "frame_points_after_cluster": 10248,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.458745,
+      "mask_pixels": 15431,
+      "frame_points_raw": 10677,
+      "frame_points_after_cluster": 10677,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.491527,
+      "mask_pixels": 16003,
+      "frame_points_raw": 11475,
+      "frame_points_after_cluster": 11475,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.526659,
+      "mask_pixels": 15601,
+      "frame_points_raw": 11455,
+      "frame_points_after_cluster": 11455,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.55877,
+      "mask_pixels": 15812,
+      "frame_points_raw": 11761,
+      "frame_points_after_cluster": 11761,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.594659,
+      "mask_pixels": 15793,
+      "frame_points_raw": 12577,
+      "frame_points_after_cluster": 12577,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.626656,
+      "mask_pixels": 15231,
+      "frame_points_raw": 11921,
+      "frame_points_after_cluster": 11921,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.658983,
+      "mask_pixels": 15073,
+      "frame_points_raw": 11846,
+      "frame_points_after_cluster": 11846,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.694893,
+      "mask_pixels": 15137,
+      "frame_points_raw": 12260,
+      "frame_points_after_cluster": 12260,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.726732,
+      "mask_pixels": 15115,
+      "frame_points_raw": 11756,
+      "frame_points_after_cluster": 11756,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.758667,
+      "mask_pixels": 14448,
+      "frame_points_raw": 11508,
+      "frame_points_after_cluster": 11508,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.794813,
+      "mask_pixels": 14595,
+      "frame_points_raw": 12171,
+      "frame_points_after_cluster": 12171,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.826795,
+      "mask_pixels": 15039,
+      "frame_points_raw": 11962,
+      "frame_points_after_cluster": 11962,
+      "frame_clusters": 1,
+      "status": "used"
+    },
+    {
+      "timestamp": 1341848067.862808,
+      "mask_pixels": 14535,
+      "frame_points_raw": 12048,
+      "frame_points_after_cluster": 12048,
+      "frame_clusters": 1,
+      "status": "used"
+    }
+  ]
+}

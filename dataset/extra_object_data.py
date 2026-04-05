@@ -69,6 +69,8 @@ def sample_points(points, num_points, rng):
 
 
 def extra_object_root_exists(root):
+    if root is None:
+        return False
     root = Path(root)
     return root.exists() and any(path.is_dir() for path in root.iterdir())
 
@@ -83,6 +85,8 @@ def modelnet40_root_exists(root):
 
 
 def discover_extra_object_labels(root):
+    if root is None:
+        return []
     root = Path(root)
     if not root.exists():
         return []
@@ -139,14 +143,36 @@ class RemappedClassificationDataset(Dataset):
         self.merged_labels = list(merged_labels)
         self.label_to_idx = {label: idx for idx, label in enumerate(self.merged_labels)}
         self.label_map = np.asarray([self.label_to_idx[label] for label in self.base_labels], dtype=np.int64)
-        self.labels = self.label_map[np.asarray(base_dataset.labels, dtype=np.int64)]
+        self.labels = self.label_map[self._collect_base_sample_label_indices(base_dataset)]
+
+    @staticmethod
+    def _collect_base_sample_label_indices(base_dataset):
+        samples = getattr(base_dataset, "samples", None)
+        if samples is not None and len(samples) > 0:
+            first = samples[0]
+            if isinstance(first, dict) and "label_idx" in first:
+                return np.asarray([int(sample["label_idx"]) for sample in samples], dtype=np.int64)
+
+        raw_labels = getattr(base_dataset, "labels", None)
+        if raw_labels is not None:
+            labels_array = np.asarray(raw_labels)
+            if labels_array.size == len(base_dataset):
+                try:
+                    return labels_array.astype(np.int64)
+                except (TypeError, ValueError):
+                    pass
+
+        raise ValueError(
+            f"Cannot derive per-sample label indices from dataset type: {type(base_dataset).__name__}"
+        )
 
     def __len__(self):
         return len(self.base_dataset)
 
     def __getitem__(self, idx):
         points, label = self.base_dataset[idx]
-        return points, int(self.label_map[int(label)])
+        label_idx = int(label.item()) if hasattr(label, "item") else int(label)
+        return points, int(self.label_map[label_idx])
 
 
 class ExtraObjectDataset(Dataset):

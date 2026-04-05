@@ -43,7 +43,6 @@ from TSDF.dataset.extra_object_data import (
 )
 from TSDF.dataset.scanobjectnn_data import SCANOBJECTNN_LABELS, ScanObjectNNDataset
 from TSDF.detection.pointnet2.pointnet2 import PointNet2ClsSSG
-from TSDF.detection.training_plots import plot_classification_history
 
 try:
     import h5py

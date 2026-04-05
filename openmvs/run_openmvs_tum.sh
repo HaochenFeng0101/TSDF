@@ -32,8 +32,8 @@ MESH_SMOOTH=2
 FREE_SPACE_SUPPORT=1
 REFINE_SCALES=3
 REFINE_MAX_VIEWS=8
-TEXTURE_MAX_SIZE=8192
-TEXTURE_VIRTUAL_FACE_IMAGES=3
+TEXTURE_MAX_SIZE=1024
+TEXTURE_VIRTUAL_FACE_IMAGES=0
 EXPORT_STAGE_PCD=1
 STAGE_PCD_POINTS=500000
 
@@ -408,6 +408,32 @@ popd >/dev/null
 echo "OpenMVS finished. Generated files in workspace:"
 find "${WORKSPACE_DIR}" -maxdepth 1 \( -name '*.mvs' -o -name '*.ply' -o -name '*.dmap' \) -print
 echo "Workspace directory: ${WORKSPACE_DIR}"
+echo "Stage summary:"
+if [[ -f "${WORKSPACE_DIR}/seed_from_depth.pcd" ]]; then
+  echo "  seed_from_depth.pcd"
+  echo "    Direct RGB-D back-projection from the input sequence."
+  echo "    Fastest baseline; keeps raw depth noise and view inconsistencies."
+fi
+if [[ -f "${WORKSPACE_DIR}/scene_dense.pcd" ]]; then
+  echo "  scene_dense.pcd"
+  echo "    Output of DensifyPointCloud."
+  echo "    Improves density and multi-view consistency over seed_from_depth.pcd."
+fi
+if [[ -f "${WORKSPACE_DIR}/scene_mesh.pcd" ]]; then
+  echo "  scene_mesh.pcd"
+  echo "    Sampled from the ReconstructMesh surface."
+  echo "    Improves structural completeness by turning the dense cloud into a connected surface."
+fi
+if [[ -f "${WORKSPACE_DIR}/scene_mesh_refine.pcd" ]]; then
+  echo "  scene_mesh_refine.pcd"
+  echo "    Sampled from the RefineMesh surface."
+  echo "    Improves geometry quality, boundaries, and local detail over scene_mesh.pcd."
+fi
+if [[ -f "${WORKSPACE_DIR}/scene_mesh_refine_texture.pcd" ]]; then
+  echo "  scene_mesh_refine_texture.pcd"
+  echo "    Sampled from the TextureMesh result."
+  echo "    Same refined geometry as the final mesh, but with image-based color information."
+fi
 echo "Run logs:"
 echo "  ${INTERFACE_STDOUT_LOG}"
 echo "  ${DENSIFY_STDOUT_LOG}"

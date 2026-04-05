@@ -1,46 +1,46 @@
 No-GT Reconstruction Comparison
 
-TSDF input: /media/yuhang/Data1/TSDF/3d_construction/outputs/fr3_office.pcd
-OpenMVS workspace: /media/yuhang/Data1/TSDF/openmvs/workspaces/fr3_office_openmvs
-OpenMVS dense cloud: /media/yuhang/Data1/TSDF/openmvs/workspaces/fr3_office_openmvs/scene_dense.ply
+TSDF input: /home/haochen/code/TSDF/3d_construction/outputs/fr3_office.pcd
+OpenMVS workspace: /home/haochen/code/TSDF/openmvs/workspaces/fr3_office_openmvs_color
+OpenMVS compare geometry: /home/haochen/code/TSDF/openmvs/workspaces/fr3_office_openmvs_color/scene_mesh_refine_texture.ply
 
 Workspace info:
-  config: /media/yuhang/Data1/TSDF/configs/rgbd/tum/fr3_office.yaml
-  dataset: /media/yuhang/Data1/TSDF/data/tum/rgbd_dataset_freiburg3_long_office_household
+  config: /home/haochen/code/TSDF/configs/rgbd/tum/fr3_office.yaml
+  dataset: /home/haochen/code/TSDF/data/tum/rgbd_dataset_freiburg3_long_office_household
   frame_stride: 5
-  frames: 500
+  frames: 517
   height: 480
   width: 640
 
 Key metrics:
-  symmetric_chamfer_l1_m: 0.573784
-  symmetric_rmse_m: 0.585004
-  occupancy_iou: 0.0989
-  tsdf_voxel_recall: 0.1324
-  openmvs_voxel_recall: 0.2810
-
-Directional distances:
-  TSDF -> OpenMVS mean_m: 0.362570
-  OpenMVS -> TSDF mean_m: 0.211214
-  TSDF -> OpenMVS median_m: 0.186417
-  OpenMVS -> TSDF median_m: 0.033234
+  symmetric_chamfer_l1_m: 0.852463
+  occupancy_iou: 0.0719
+  tsdf_voxel_recall: 0.0891
+  openmvs_voxel_recall: 0.2719
 
 How to read:
-  Lower Chamfer / RMSE is better.
+  Lower Chamfer is better.
   Higher occupancy IoU / voxel recall is better.
   Lower normal-angle error means local surface direction agrees better.
   These are relative consistency metrics, not absolute accuracy, because no ground truth is used.
+  By default, the OpenMVS side uses the final textured/refined mesh if it exists.
 
 OpenMVS SLAM-view metrics:
   num_eval_frames: 30
-  sensor_overlap_ratio: 0.1500
-  render_overlap_ratio: 0.8952
-  mae_m: 0.852603
-  median_m: 0.452461
-  rmse_m: 1.395977
+  sensor_overlap_ratio: 0.0970
+  render_overlap_ratio: 0.8922
+  mae_m: 1.044084
+  median_m: 0.672300
+  rmse_m: 1.637004
+  p90_m: 2.267166
 
 How to read OpenMVS SLAM-view metrics:
-  sensor_overlap_ratio: how much of valid RGB-D depth is explained by the OpenMVS cloud.
-  render_overlap_ratio: how much of the rendered OpenMVS depth lands on valid sensor depth.
-  MAE / RMSE: reprojection depth error against RGB-D frames using known poses.
-  within_xxm: fraction of overlap pixels whose depth error stays under the threshold.
+  sensor_overlap_ratio: among valid sensor depth pixels, how many are covered by the OpenMVS reprojection. Higher is better.
+  render_overlap_ratio: among valid rendered OpenMVS depth pixels, how many fall on valid sensor depth. Higher is better.
+  mae_m: mean absolute depth error after reprojecting OpenMVS into the RGB-D/SLAM camera views. Lower is better.
+  median_m: median reprojection depth error. Lower is better and more robust than MAE.
+  rmse_m: root mean squared reprojection depth error. Lower is better.
+  p90_m: 90th percentile reprojection depth error. Lower is better.
+  within_0.020m / within_0.050m / within_0.100m: fraction of overlap pixels within 2cm / 5cm / 10cm. Higher is better.
+  num_eval_frames: number of RGB-D frames used for evaluation.
+  per_frame in the JSON report stores frame-wise overlap and depth error details.

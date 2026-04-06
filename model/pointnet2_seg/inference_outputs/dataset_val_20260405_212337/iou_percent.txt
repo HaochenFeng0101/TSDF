@@ -1,0 +1,17 @@
+ceiling: 64.2
+floor: 91.5
+wall: 49.6
+beam: 28.2
+column: 0.8
+window: 0.0
+door: 21.0
+chair: 3.8
+table: 42.3
+bookcase: 0.7
+sofa: 0.0
+board: 0.3
+clutter: 16.4
+mIoU: 24.5
+
+table_row:
+64.2 91.5 49.6 28.2 0.8 0.0 21.0 3.8 42.3 0.7 0.0 0.3 16.4 24.5

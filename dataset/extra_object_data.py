@@ -24,6 +24,9 @@ except Exception:
 
 
 POINT_FILE_EXTS = {".pcd", ".ply", ".npy", ".npz", ".txt", ".pts", ".xyz"}
+EXTRA_OBJECT_LABEL_ALIASES = {
+    "tv": "monitor",
+}
 
 
 def normalize_points(points):
@@ -68,6 +71,11 @@ def sample_points(points, num_points, rng):
     return points[indices]
 
 
+def canonicalize_extra_object_label(label):
+    normalized = str(label).strip()
+    return EXTRA_OBJECT_LABEL_ALIASES.get(normalized, normalized)
+
+
 def extra_object_root_exists(root):
     if root is None:
         return False
@@ -98,7 +106,8 @@ def discover_extra_object_labels(root):
     root = Path(root)
     if not root.exists():
         return []
-    return sorted(path.name for path in root.iterdir() if path.is_dir())
+    labels = {canonicalize_extra_object_label(path.name) for path in root.iterdir() if path.is_dir()}
+    return sorted(labels)
 
 
 def build_merged_labels(extra_root):
@@ -195,7 +204,7 @@ class ExtraObjectDataset(Dataset):
         self.samples = []
 
         for label_dir in sorted(path for path in self.root.iterdir() if path.is_dir()):
-            label = label_dir.name
+            label = canonicalize_extra_object_label(label_dir.name)
             if label not in self.label_to_idx:
                 continue
 

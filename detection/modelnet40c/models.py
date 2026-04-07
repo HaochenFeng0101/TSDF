@@ -11,9 +11,9 @@ OFFICIAL_ROOT = TSDF_ROOT / "third_party" / "ModelNet40-C"
 if str(TSDF_ROOT.parent) not in sys.path:
     sys.path.insert(0, str(TSDF_ROOT.parent))
 
+from TSDF.detection.dgcnn_model import DGCNNCls as LocalDGCNNCls
 from TSDF.detection.modelnet40c.simpleview import SimpleViewCls
 from TSDF.detection.pointmlp.model import PointMLPCls
-from TSDF.detection.pointnet_model import PointNetCls
 
 
 MODEL_SPECS = {
@@ -143,8 +143,18 @@ def _get_graph_feature_device_aware(x, k=20, idx=None):
 class DGCNNCls(nn.Module):
     def __init__(self, num_classes=40, k=20, emb_dims=1024, dropout=0.5, leaky_relu=True):
         super().__init__()
-        ensure_official_root()
-        import dgcnn.pytorch.model as dgcnn_model
+        try:
+            ensure_official_root()
+            import dgcnn.pytorch.model as dgcnn_model
+        except Exception:
+            self.model = LocalDGCNNCls(
+                k=num_classes,
+                num_neighbors=k,
+                emb_dims=emb_dims,
+                dropout=dropout,
+                leaky_relu=leaky_relu,
+            )
+            return
 
         dgcnn_model.get_graph_feature = _get_graph_feature_device_aware
 
@@ -181,6 +191,8 @@ class RSCNNCls(nn.Module):
 class PointNetLocalCls(nn.Module):
     def __init__(self, num_classes=40, dropout=0.3):
         super().__init__()
+        from TSDF.detection.pointnet_model import PointNetCls
+
         self.model = PointNetCls(k=num_classes, dropout=dropout)
 
     def forward(self, x):

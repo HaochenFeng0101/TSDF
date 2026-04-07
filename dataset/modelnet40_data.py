@@ -3,7 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Subset
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -16,6 +16,11 @@ except Exception:
     trimesh = None
 
 try:
+    import h5py
+except Exception:
+    h5py = None
+
+try:
     import open3d as o3d
 except Exception:
     o3d = None
@@ -24,6 +29,18 @@ from TSDF.dataset.scanobjectnn_data import maybe_augment, normalize_points
 
 
 POINT_EXTENSIONS = {".off", ".npy", ".npz", ".txt", ".pts", ".xyz", ".pcd", ".ply"}
+
+
+def _modelnet40_h5_ready(root):
+    root = Path(root)
+    candidates = [
+        root / "modelnet40_ply_hdf5_2048",
+        root,
+    ]
+    for candidate in candidates:
+        if (candidate / "train_files.txt").exists() and (candidate / "shape_names.txt").exists():
+            return True
+    return False
 
 
 def _resolve_root(root):
@@ -293,15 +310,114 @@ class ModelNet40Dataset(Dataset):
         return tensor, label
 
 
-def get_modelnet40_dataloaders(
+class ModelNet40H5Dataset(Dataset):
+    def __init__(self, root, split="train", num_points=1024, normalize=True, augment=False, seed=0):
+        if h5py is None:
+            raise RuntimeError("h5py is required to read ModelNet40 HDF5 data.")
+
+        self.root = Path(root)
+        self.split = split
+        self.num_points = num_points
+        self.normalize = normalize
+        self.augment = augment
+        self.rng = np.random.default_rng(seed)
+
+        if self.root.name != "modelnet40_ply_hdf5_2048" and (self.root / "modelnet40_ply_hdf5_2048").exists():
+            self.root = self.root / "modelnet40_ply_hdf5_2048"
+
+        labels_path = self.root / "shape_names.txt"
+        if not labels_path.exists():
+            raise FileNotFoundError(f"Could not find {labels_path}")
+        with open(labels_path, "r", encoding="utf-8") as handle:
+            self.labels = [line.strip() for line in handle if line.strip()]
+
+        filelist_name = "train_files.txt" if split == "train" else "test_files.txt"
+        filelist_path = self.root / filelist_name
+        if not filelist_path.exists():
+            raise FileNotFoundError(f"Could not find {filelist_path}")
+
+        self.samples = []
+        with open(filelist_path, "r", encoding="utf-8") as handle:
+            relative_paths = [line.strip() for line in handle if line.strip()]
+
+        for relpath in relative_paths:
+            h5_name = Path(relpath).name
+            h5_path = self.root / h5_name
+            if not h5_path.exists():
+                h5_path = self.root / relpath
+            if not h5_path.exists():
+                raise FileNotFoundError(f"Could not find H5 file: {h5_path}")
+
+            with h5py.File(h5_path, "r") as data:
+                points = np.asarray(data["data"], dtype=np.float32)[:, :, :3]
+                labels = np.asarray(data["label"]).reshape(-1).astype(np.int64)
+            for idx in range(len(labels)):
+                self.samples.append({"points": points[idx], "label_idx": int(labels[idx])})
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        sample = self.samples[idx]
+        points = sample["points"]
+        if self.normalize:
+            points = normalize_points(points)
+        points = sample_points(points, self.num_points, self.rng)
+        if self.augment:
+            points = maybe_augment(points, self.rng)
+        return torch.from_numpy(points.T.astype(np.float32)), sample["label_idx"]
+
+
+def load_modelnet40_dataset(
     root,
-    batch_size=32,
+    split="train",
     num_points=1024,
-    workers=4,
+    normalize=True,
+    augment=False,
     seed=0,
     sample_method="surface",
 ):
-    train_dataset = ModelNet40Dataset(
+    if _modelnet40_h5_ready(root):
+        return ModelNet40H5Dataset(
+            root=root,
+            split=split,
+            num_points=num_points,
+            normalize=normalize,
+            augment=augment,
+            seed=seed,
+        )
+    return ModelNet40Dataset(
+        root=root,
+        split=split,
+        num_points=num_points,
+        normalize=normalize,
+        augment=augment,
+        seed=seed,
+        sample_method=sample_method,
+    )
+
+
+def compute_sampled_dataset_size(dataset_size, ratio_denominator):
+    ratio_denominator = int(ratio_denominator)
+    if ratio_denominator <= 0:
+        raise ValueError("--mild-ratio-denominator must be a positive integer.")
+    if dataset_size <= 0:
+        return 0
+    if ratio_denominator == 1:
+        return dataset_size
+    return max(1, dataset_size // ratio_denominator)
+
+
+def sample_dataset(dataset, target_size, seed):
+    if target_size >= len(dataset):
+        return dataset
+    generator = torch.Generator().manual_seed(seed)
+    indices = torch.randperm(len(dataset), generator=generator)[:target_size].tolist()
+    return Subset(dataset, indices)
+
+
+def load_processed_modelnet40_train_dataset(root, num_points=1024, seed=0, sample_method="surface"):
+    dataset = load_modelnet40_dataset(
         root=root,
         split="train",
         num_points=num_points,
@@ -310,7 +426,28 @@ def get_modelnet40_dataloaders(
         seed=seed,
         sample_method=sample_method,
     )
-    test_dataset = ModelNet40Dataset(
+    processed_format = "h5" if isinstance(dataset, ModelNet40H5Dataset) else "off"
+    return dataset, processed_format
+
+
+def get_modelnet40_dataloaders(
+    root,
+    batch_size=32,
+    num_points=1024,
+    workers=4,
+    seed=0,
+    sample_method="surface",
+):
+    train_dataset = load_modelnet40_dataset(
+        root=root,
+        split="train",
+        num_points=num_points,
+        normalize=True,
+        augment=True,
+        seed=seed,
+        sample_method=sample_method,
+    )
+    test_dataset = load_modelnet40_dataset(
         root=root,
         split="test",
         num_points=num_points,

@@ -1,0 +1,88 @@
+{
+  "config": "configs/rgbd/tum/fr3_office.yaml",
+  "dataset": "data/tum/rgbd_dataset_freiburg3_long_office_household",
+  "target_class": [
+    "tv"
+  ],
+  "model": "yolov8x-seg.pt",
+  "created_at": "2026-04-11T13:18:14",
+  "score_threshold": 0.35,
+  "merge_mode": "top1",
+  "device": "cuda:0",
+  "frames_total": 2585,
+  "frames_with_detection": 1085,
+  "frames_without_detection": 1500,
+  "frames_saved": 1746,
+  "separate_instances": true,
+  "min_instance_mask_pixels": 2500,
+  "min_track_frames": 60,
+  "tracks": [
+    {
+      "track_id": 0,
+      "frames_saved": 74,
+      "mask_list": "mask_generation/outputs/fr3_office_tv_yolov8x-seg_20260411_131812/mask_track_000.txt"
+    },
+    {
+      "track_id": 2,
+      "frames_saved": 470,
+      "mask_list": "mask_generation/outputs/fr3_office_tv_yolov8x-seg_20260411_131812/mask_track_002.txt"
+    },
+    {
+      "track_id": 4,
+      "frames_saved": 320,
+      "mask_list": "mask_generation/outputs/fr3_office_tv_yolov8x-seg_20260411_131812/mask_track_004.txt"
+    },
+    {
+      "track_id": 5,
+      "frames_saved": 449,
+      "mask_list": "mask_generation/outputs/fr3_office_tv_yolov8x-seg_20260411_131812/mask_track_005.txt"
+    },
+    {
+      "track_id": 6,
+      "frames_saved": 225,
+      "mask_list": "mask_generation/outputs/fr3_office_tv_yolov8x-seg_20260411_131812/mask_track_006.txt"
+    },
+    {
+      "track_id": 8,
+      "frames_saved": 93,
+      "mask_list": "mask_generation/outputs/fr3_office_tv_yolov8x-seg_20260411_131812/mask_track_008.txt"
+    }
+  ],
+  "rejected_tracks": [
+    {
+      "track_id": 1,
+      "frames_saved": 6,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 3,
+      "frames_saved": 36,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 7,
+      "frames_saved": 5,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 9,
+      "frames_saved": 10,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 10,
+      "frames_saved": 8,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 11,
+      "frames_saved": 16,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 12,
+      "frames_saved": 34,
+      "reason": "frames_saved < 60"
+    }
+  ]
+}

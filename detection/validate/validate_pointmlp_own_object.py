@@ -18,6 +18,7 @@ from TSDF.detection.visualize_pointmlp_pcd import (
     inspect_point_cloud,
     load_labels,
     load_point_cloud_points,
+    resolve_default_pointmlp_artifact,
     visualize_point_cloud,
 )
 
@@ -35,12 +36,12 @@ def main():
     )
     parser.add_argument(
         "--checkpoint",
-        default=str(TSDF_ROOT / "model" / "pointmlp" / "pointmlp_best_weights.pth"),
+        default=str(resolve_default_pointmlp_artifact("pointmlp_best_weights.pth")),
         help="PointMLP checkpoint path.",
     )
     parser.add_argument(
         "--labels",
-        default=str(TSDF_ROOT / "model" / "pointmlp" / "labels.txt"),
+        default=str(resolve_default_pointmlp_artifact("labels.txt")),
         help="Class label file used for custom point clouds.",
     )
     parser.add_argument(

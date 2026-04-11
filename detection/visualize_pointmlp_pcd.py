@@ -26,6 +26,24 @@ if str(REPO_ROOT) not in sys.path:
 from TSDF.detection.pointmlp.pointmlp_cls import PointMLPCls
 
 
+def resolve_default_pointmlp_artifact(filename):
+    candidates = [
+        TSDF_ROOT / "model" / "pointmlp" / filename,
+        TSDF_ROOT / "model" / "pointmlp0405" / filename,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    model_root = TSDF_ROOT / "model"
+    if model_root.exists():
+        discovered = sorted(model_root.glob(f"pointmlp*/{filename}"))
+        if discovered:
+            return discovered[0]
+
+    return candidates[0]
+
+
 def set_seed(seed):
     if seed is None:
         return
@@ -38,12 +56,12 @@ def set_seed(seed):
 def load_labels(labels_path):
     path = Path(labels_path)
     if not path.exists():
-        raise FileNotFoundError(f"找不到标签文件: {path}")
+        raise FileNotFoundError(f"Could not find label file: {path}")
 
     with open(path, "r", encoding="utf-8") as handle:
         labels = [line.strip() for line in handle if line.strip()]
     if not labels:
-        raise ValueError(f"标签文件为空: {path}")
+        raise ValueError(f"Label file is empty: {path}")
     return labels
 
 
@@ -62,27 +80,27 @@ def load_checkpoint(model, checkpoint_path, device):
 
     missing, unexpected = model.load_state_dict(cleaned, strict=False)
     if missing:
-        raise RuntimeError(f"checkpoint 缺少参数: {missing}")
+        raise RuntimeError(f"Checkpoint is missing keys: {missing}")
     if unexpected:
-        raise RuntimeError(f"checkpoint 多出参数: {unexpected}")
+        raise RuntimeError(f"Checkpoint has unexpected keys: {unexpected}")
     return checkpoint
 
 
 def load_point_cloud_points(point_cloud_path):
     if o3d is None:
-        raise RuntimeError("当前环境没有 Open3D，无法读取或可视化点云。")
+        raise RuntimeError("Open3D is not available in this environment.")
 
     path = Path(point_cloud_path)
     if not path.exists():
-        raise FileNotFoundError(f"找不到点云文件: {path}")
+        raise FileNotFoundError(f"Could not find point cloud file: {path}")
 
     point_cloud = o3d.io.read_point_cloud(str(path))
     if point_cloud.is_empty():
-        raise RuntimeError(f"点云为空或读取失败: {path}")
+        raise RuntimeError(f"Point cloud is empty or unreadable: {path}")
 
     points = np.asarray(point_cloud.points, dtype=np.float32)
     if points.ndim != 2 or points.shape[1] != 3:
-        raise RuntimeError(f"点云格式不对，期望 Nx3，实际是 {points.shape}")
+        raise RuntimeError(f"Expected Nx3 points in {path}, got shape {points.shape}")
     return points
 
 
@@ -165,7 +183,7 @@ def colorize_points(points):
 
 def visualize_point_cloud(points, title):
     if o3d is None:
-        raise RuntimeError("当前环境没有 Open3D，无法显示点云窗口。")
+        raise RuntimeError("Open3D is not available in this environment.")
 
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points.astype(np.float64))
@@ -175,43 +193,43 @@ def visualize_point_cloud(points, title):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="对给定的点云文件进行 PointMLP 分类，并默认可视化结果。"
+        description="Run PointMLP classification on a point cloud and visualize the result by default."
     )
     parser.add_argument(
         "checkpoint",
         nargs="?",
-        default=str(TSDF_ROOT / "model" / "pointmlp" / "pointmlp_best_weights.pth"),
-        help="PointMLP 权重路径，默认 model/pointmlp/pointmlp_best_weights.pth",
+        default=str(resolve_default_pointmlp_artifact("pointmlp_best_weights.pth")),
+        help="PointMLP checkpoint path.",
     )
     parser.add_argument(
         "pcd",
         nargs="?",
         default=str(TSDF_ROOT / "3d_construction" / "outputs" / "chair.pcd"),
-        help="要分类和可视化的点云文件，支持 .pcd / .ply",
+        help="Point cloud file to classify and visualize.",
     )
     parser.add_argument(
         "--labels",
-        default=str(TSDF_ROOT / "model" / "pointmlp" / "labels.txt"),
-        help="类别标签文件，默认 model/pointmlp/labels.txt",
+        default=str(resolve_default_pointmlp_artifact("labels.txt")),
+        help="Class label file.",
     )
-    parser.add_argument("--num-points", type=int, default=None, help="采样点数，默认读取 checkpoint 配置")
-    parser.add_argument("--num-votes", type=int, default=1, help="投票次数")
-    parser.add_argument("--use-all-points", action="store_true", help="使用全部点而不是随机采样")
-    parser.add_argument("--seed", type=int, default=None, help="随机种子")
+    parser.add_argument("--num-points", type=int, default=None, help="Number of sampled points. Defaults to the checkpoint setting.")
+    parser.add_argument("--num-votes", type=int, default=1, help="Number of prediction votes.")
+    parser.add_argument("--use-all-points", action="store_true", help="Use all points instead of random sampling.")
+    parser.add_argument("--seed", type=int, default=None, help="Random seed.")
     parser.add_argument(
         "--device",
         default="cuda" if torch.cuda.is_available() else "cpu",
-        help="推理设备，如 cuda 或 cpu",
+        help="Inference device, for example cuda or cpu.",
     )
     parser.add_argument(
         "--no-visualize",
         action="store_true",
-        help="只输出分类结果，不弹出可视化窗口",
+        help="Only print the prediction result without opening a visualization window.",
     )
     parser.add_argument(
         "--visualize-raw-points",
         action="store_true",
-        help="可视化原始点云；默认可视化归一化后的输入点云",
+        help="Visualize the raw point cloud instead of the normalized input points.",
     )
     args = parser.parse_args()
 

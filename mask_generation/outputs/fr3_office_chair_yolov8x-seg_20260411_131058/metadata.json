@@ -1,0 +1,238 @@
+{
+  "config": "configs/rgbd/tum/fr3_office.yaml",
+  "dataset": "data/tum/rgbd_dataset_freiburg3_long_office_household",
+  "target_class": [
+    "chair"
+  ],
+  "model": "yolov8x-seg.pt",
+  "created_at": "2026-04-11T13:10:59",
+  "score_threshold": 0.35,
+  "merge_mode": "top1",
+  "device": "cuda:0",
+  "frames_total": 2585,
+  "frames_with_detection": 1956,
+  "frames_without_detection": 629,
+  "frames_saved": 3107,
+  "separate_instances": true,
+  "min_instance_mask_pixels": 2500,
+  "min_track_frames": 60,
+  "tracks": [
+    {
+      "track_id": 0,
+      "frames_saved": 612,
+      "mask_list": "mask_generation/outputs/fr3_office_chair_yolov8x-seg_20260411_131058/mask_track_000.txt"
+    },
+    {
+      "track_id": 1,
+      "frames_saved": 337,
+      "mask_list": "mask_generation/outputs/fr3_office_chair_yolov8x-seg_20260411_131058/mask_track_001.txt"
+    },
+    {
+      "track_id": 7,
+      "frames_saved": 121,
+      "mask_list": "mask_generation/outputs/fr3_office_chair_yolov8x-seg_20260411_131058/mask_track_007.txt"
+    },
+    {
+      "track_id": 8,
+      "frames_saved": 60,
+      "mask_list": "mask_generation/outputs/fr3_office_chair_yolov8x-seg_20260411_131058/mask_track_008.txt"
+    },
+    {
+      "track_id": 10,
+      "frames_saved": 169,
+      "mask_list": "mask_generation/outputs/fr3_office_chair_yolov8x-seg_20260411_131058/mask_track_010.txt"
+    },
+    {
+      "track_id": 12,
+      "frames_saved": 164,
+      "mask_list": "mask_generation/outputs/fr3_office_chair_yolov8x-seg_20260411_131058/mask_track_012.txt"
+    },
+    {
+      "track_id": 13,
+      "frames_saved": 121,
+      "mask_list": "mask_generation/outputs/fr3_office_chair_yolov8x-seg_20260411_131058/mask_track_013.txt"
+    },
+    {
+      "track_id": 14,
+      "frames_saved": 114,
+      "mask_list": "mask_generation/outputs/fr3_office_chair_yolov8x-seg_20260411_131058/mask_track_014.txt"
+    },
+    {
+      "track_id": 16,
+      "frames_saved": 156,
+      "mask_list": "mask_generation/outputs/fr3_office_chair_yolov8x-seg_20260411_131058/mask_track_016.txt"
+    },
+    {
+      "track_id": 30,
+      "frames_saved": 186,
+      "mask_list": "mask_generation/outputs/fr3_office_chair_yolov8x-seg_20260411_131058/mask_track_030.txt"
+    },
+    {
+      "track_id": 38,
+      "frames_saved": 349,
+      "mask_list": "mask_generation/outputs/fr3_office_chair_yolov8x-seg_20260411_131058/mask_track_038.txt"
+    },
+    {
+      "track_id": 39,
+      "frames_saved": 419,
+      "mask_list": "mask_generation/outputs/fr3_office_chair_yolov8x-seg_20260411_131058/mask_track_039.txt"
+    }
+  ],
+  "rejected_tracks": [
+    {
+      "track_id": 2,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 3,
+      "frames_saved": 2,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 4,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 5,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 6,
+      "frames_saved": 39,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 9,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 11,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 15,
+      "frames_saved": 6,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 17,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 18,
+      "frames_saved": 9,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 19,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 20,
+      "frames_saved": 24,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 21,
+      "frames_saved": 15,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 22,
+      "frames_saved": 4,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 23,
+      "frames_saved": 19,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 24,
+      "frames_saved": 3,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 25,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 26,
+      "frames_saved": 29,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 27,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 28,
+      "frames_saved": 5,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 29,
+      "frames_saved": 5,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 31,
+      "frames_saved": 12,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 32,
+      "frames_saved": 32,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 33,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 34,
+      "frames_saved": 24,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 35,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 36,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 37,
+      "frames_saved": 50,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 40,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 41,
+      "frames_saved": 7,
+      "reason": "frames_saved < 60"
+    },
+    {
+      "track_id": 42,
+      "frames_saved": 1,
+      "reason": "frames_saved < 60"
+    }
+  ]
+}

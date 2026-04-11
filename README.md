@@ -1,14 +1,28 @@
 # TSDF
 
-This project contains lightweight tools for:
+## Environment
 
-- downloading indoor RGB-D datasets
-- reconstructing scene point clouds with TSDF
-- generating 2D masks with `Mask R-CNN`
-- fusing masked RGB-D observations into object point clouds
-- training and validating point cloud classifiers
+Create the conda environment:
 
-## Folders
+```bash
+conda env create -n tsdf -f environment_py310.yml
+conda activate tsdf
+```
+
+If the environment already exists, update it:
+
+```bash
+conda env update -n tsdf -f environment_py310.yml --prune
+conda activate tsdf
+```
+
+Run every command from the repository root:
+
+```bash
+cd /path/to/TSDF
+```
+
+## Project Structure
 
 - `3d_construction/`
   Scene reconstruction and object point cloud fusion.
@@ -29,325 +43,247 @@ This project contains lightweight tools for:
 - `openmvs/`
   TUM RGB-D to OpenMVS workspace export, build scripts, and OpenMVS outputs.
 
-## Main Scripts
+## 1. OpenMVS Reconstruction
 
-### `dataset/`
-
-- `download_tum_rgbd_samples.py`
-  Download a few TUM RGB-D indoor sample scenes.
-- `download_scanobjectnn.py`
-  Download `ScanObjectNN`.
-- `download_modelnet40_kaggle.py`
-  Download `ModelNet40` from Kaggle.
-- `download_scannet_scene.py`
-  Wrapper around the official ScanNet downloader and SensReader exporter.
-- `scanobjectnn_data.py`
-  ScanObjectNN dataset loader.
-- `modelnet40_data.py`
-  ModelNet40 dataset loader.
-
-### `3d_construction/`
-
-- `run_tum_rgbd_tsdf.py`
-  Reconstruct a full TUM RGB-D scene into a scene `pcd`.
-- `run_scannet_tsdf.py`
-  Reconstruct an exported ScanNet scene into a scene `pcd`.
-- `fuse_tum_mask_object_pcd.py`
-  Fuse multi-frame TUM masks plus depth plus pose into object-level `pcd` files.
-  It also supports batch fusion of all `mask_track_*.txt` files into one `time_fuse_*` folder.
-
-### `mask_generation/`
-
-- `generate_tum_masks_maskrcnn.py`
-  Run `torchvision Mask R-CNN` on a TUM RGB-D sequence and save masks.
-- `generate_scannet_masks_maskrcnn.py`
-  Run `torchvision Mask R-CNN` on an exported ScanNet scene and save masks.
-
-### `detection/`
-
-- `train_pointnet_cls.py`
-  Train PointNet classification.
-- `validate_pointnet_sample.py`
-  Inspect one PointNet prediction on ScanObjectNN.
-- `predict_pointcloud.py`
-  Run a trained PointNet or PointMLP checkpoint on one `.off` / point cloud file and optionally visualize it.
-- `predict_pointnet_pointcloud.py`
-  Backward-compatible wrapper around `predict_pointcloud.py`.
-- `find_and_classify_object_pcd.py`
-  Cluster a scene point cloud and classify each cluster.
-- `train_pointmlp_cls.py`
-  Wrapper entrypoint for PointMLP training.
-- `validate_pointmlp_sample.py`
-  Wrapper entrypoint for PointMLP validation.
-- `pointnet_model.py`
-  PointNet model definition.
-- `pointmlp/`
-  PointMLP implementation.
-  - `model.py`
-  - `train.py`
-  - `validate.py`
-
-## Environment
-
-Two environments were used during this project:
-
-- `MonoGS`
-  Older environment used earlier for reconstruction experiments.
-- `tsdf`
-  Main environment for current TSDF / mask / classifier scripts.
-
-There is also:
-
-- `environment_py310.yml`
-  Python 3.10 environment file for the TSDF project.
-
-## Typical Workflow
-
-### 1. Download TUM RGB-D samples
+Build OpenMVS once:
 
 ```bash
-cd /TSDF
-conda activate tsdf
-
-python dataset/download_tum_rgbd_samples.py
+bash openmvs/setup_openmvs.sh
 ```
 
-This downloads sample scenes under:
-
-- `data/tum/`
-
-### 2. Reconstruct a TUM scene point cloud
+Run OpenMVS on a TUM scene:
 
 ```bash
-python 3d_construction/run_tum_rgbd_tsdf.py \
+bash openmvs/run_openmvs_tum.sh \
+  --config configs/rgbd/tum/fr3_office.yaml \
+  --workspace-name fr3_office_openmvs
+```
+
+Default output:
+
+- `openmvs/workspaces/<workspace>/seed_from_depth.pcd`
+- `openmvs/workspaces/<workspace>/scene_dense.pcd`
+- `openmvs/workspaces/<workspace>/scene_mesh.pcd`
+- `openmvs/workspaces/<workspace>/scene_mesh_refine.pcd`
+- `openmvs/workspaces/<workspace>/scene_mesh_refine_texture.pcd`
+
+## 2. TSDF Reconstruction
+
+Run TSDF on a TUM scene:
+
+```bash
+python3 3d_construction/run_tum_rgbd_tsdf.py \
   --config configs/rgbd/tum/fr3_office.yaml
 ```
 
 Default output:
 
-- `3d_construction/outputs/fr3_office.pcd`
+- `3d_construction/outputs/<config_stem>.pcd`
 
-### 3. Generate masks for a target class from TUM RGB-D
+## 3. 2D Extraction to 3D Object Point Cloud
 
-Example: generate `chair` masks.
+Generate 2D masks with YOLO:
 
 ```bash
-python mask_generation/generate_tum_masks_maskrcnn.py \
+python3 mask_generation/generate_tum_masks_yolo.py \
   --config configs/rgbd/tum/fr3_office.yaml \
-  --target-class chair \
-  --max-frames 100 \
-  --device cuda
+  --model yolov8x-seg.pt \
+  --target-class chair
 ```
 
-If you want to split same-class detections into separate instance tracks:
+Default output:
+
+- `mask_generation/outputs/<scene>_<class>_<model>_<timestamp>/`
+
+Fuse masks into a 3D object point cloud:
 
 ```bash
-python mask_generation/generate_tum_masks_maskrcnn.py \
-  --config configs/rgbd/tum/fr3_office.yaml \
-  --target-class chair \
-  --separate-instances \
-  --save-preview \
-  --max-frames 100 \
-  --device cuda
+python3 3d_construction/fuse_tum_mask_object_pcd.py \
+  mask_generation/outputs/<scene>_<class>_<model>_<timestamp>
 ```
 
-Default output folder:
-
-- `mask_generation/outputs/fr3_office_chair/`
-
-Contents usually include:
-
-- `masks/`
-- `mask.txt`
-- `detections.jsonl`
-- `metadata.json`
-
-If `--separate-instances` is used, it also creates:
-
-- `mask_track_000.txt`
-- `mask_track_001.txt`
-- ...
-
-### 4. Fuse one target object point cloud from TUM masks
-
-Single merged object:
+If you want one specific tracked instance:
 
 ```bash
-python 3d_construction/fuse_tum_mask_object_pcd.py \
-  --config configs/rgbd/tum/fr3_office.yaml \
-  --mask-dir mask_generation/outputs/fr3_office_chair/masks \
-  --mask-list mask_generation/outputs/fr3_office_chair/mask.txt \
-  --largest-component \
-  --voxel-downsample 0.005 \
-  --remove-statistical-outlier
+python3 3d_construction/fuse_tum_mask_object_pcd.py \
+  mask_generation/outputs/<scene>_<class>_<model>_<timestamp> \
+  --track-id 0
 ```
 
-Batch fuse all separate tracks into one new timestamped folder:
+Default output:
+
+- `3d_construction/outputs/fuse_obj_<mask_folder>_<timestamp>/fused_object.pcd`
+
+## 4. Semantic Segmentation
+
+Run PointNet++ semantic segmentation on one scene:
 
 ```bash
-python 3d_construction/fuse_tum_mask_object_pcd.py \
-  --config configs/rgbd/tum/fr3_office.yaml \
-  --mask-dir mask_generation/outputs/fr3_office_chair/masks \
-  --fuse-all-tracks \
-  --output-dir 3d_construction/outputs/time_fuse_chair_custom \
-  --largest-component \
-  --voxel-downsample 0.005 \
-  --remove-statistical-outlier
+python3 detection/pointnet2/validate_seg.py \
+  --pcd 3d_construction/outputs/fr3_office.pcd \
+  --checkpoint model/pointnet2_seg/pointnet2_seg_best.pth \
+  --labels model/pointnet2_seg/labels.txt \
+  --visualize
 ```
 
-This creates one `pcd` per track under the target output folder.
+Default output:
 
-### 5. Download ScanObjectNN
+- `model/pointnet2_seg/inference_outputs/single_scene_<timestamp>/`
+
+Run PointNet++ semantic segmentation on a dataset split and save IoU results:
 
 ```bash
-python dataset/download_scanobjectnn.py
+python3 detection/pointnet2/validate_seg.py \
+  --data-root data/S3DIS_seg \
+  --split val \
+  --checkpoint model/pointnet2_seg/pointnet2_seg_best.pth \
+  --labels model/pointnet2_seg/labels.txt
 ```
 
-Default data folder:
+Default output:
 
-- `data/ScanObjectNN`
+- `model/pointnet2_seg/inference_outputs/dataset_<split>_<timestamp>/dataset_metrics.json`
+- `model/pointnet2_seg/inference_outputs/dataset_<split>_<timestamp>/iou_percent.txt`
 
-### OpenMVS Workflow For TUM RGB-D
-
-If you want to try OpenMVS on a TUM RGB-D sequence, use the helper folder:
+Run PointMLP semantic segmentation on one scene:
 
 ```bash
-bash openmvs/setup_openmvs.sh
-
-python openmvs/export_tum_to_openmvs.py --config configs/rgbd/tum/fr3_office.yaml --workspace-name fr3_office_openmvs --frame-stride 10 --max-frames 120
-
-bash openmvs/run_openmvs_tum.sh --workspace-name fr3_office_openmvs --reexport --frame-stride 10 --max-frames 120
+python3 detection/validate_pointmlp_seg.py \
+  --pcd 3d_construction/outputs/fr3_office.pcd \
+  --checkpoint seg_model/pointmlp/pointmlp_seg_best.pth \
+  --labels seg_model/pointmlp/labels.txt \
+  --visualize
 ```
 
-The exported workspace is created under:
+Default output:
 
-- `openmvs/workspaces/fr3_office_openmvs/`
+- `seg_model/pointmlp/inference_outputs/`
 
-Final OpenMVS files are kept in the workspace folder itself.
+## 5. Classification Training
 
-Run logs are written to:
-
-- `log/oppenmvs/fr3_office_openmvs/`
-
-### 6. Train PointNet
+Train PointNet:
 
 ```bash
-python detection/train_pointnet_cls.py \
-  --dataset-type scanobjectnn
+python3 detection/pointnet/train.py \
+  --dataset-type modelnet40
 ```
 
-Default outputs:
+Default output:
 
 - `model/pointnet/pointnet_best.pth`
-- `model/pointnet/pointnet_last.pth`
 - `model/pointnet/labels.txt`
 
-### 7. Validate PointNet on one sample
+Train PointMLP:
 
 ```bash
-python detection/validate_pointnet_sample.py \
-  --checkpoint model/pointnet/pointnet_best.pth \
-  --scanobjectnn-root data/ScanObjectNN \
-  --scanobjectnn-variant pb_t50_rs \
+python3 detection/pointmlp/train.py \
+  --dataset-type modelnet40
+```
+
+Default output:
+
+- `model/pointmlp/pointmlp_best_weights.pth`
+- `model/pointmlp/labels.txt`
+
+Train PointNet++ classification:
+
+```bash
+python3 detection/pointnet2/train.py \
+  --dataset-type modelnet40
+```
+
+Default output:
+
+- `model/pointnet2/pointnet2_best.pth`
+- `model/pointnet2/labels.txt`
+
+## 6. Visualize and Classify Your Own Point Cloud
+
+Visualize and classify one custom object with PointNet:
+
+```bash
+python3 detection/pointnet/validate_own_object.py \
+  3d_construction/outputs/fuse_obj_xxx/fused_object.pcd \
   --use-all-points
 ```
 
-### 7b. Download ModelNet40 from Kaggle
-
-This uses the Kaggle CLI, so the server must already have Kaggle credentials configured.
+Visualize and classify one custom object with PointMLP:
 
 ```bash
-python dataset/download_modelnet40_kaggle.py
+python3 detection/validate/validate_pointmlp_own_object.py \
+  3d_construction/outputs/fuse_obj_xxx/fused_object.pcd \
+  --use-all-points
 ```
 
-Default data folder:
-
-- `data/ModelNet40`
-
-### 7c. Train PointNet on ModelNet40
+Visualize and classify one custom object with PointNet++:
 
 ```bash
-python detection/train_pointnet_cls.py \
-  --dataset-type modelnet40 \
-  --modelnet40-root data/ModelNet40 \
-  --epochs 150 \
-  --batch-size 32 \
-  --num-points 1024
+python3 detection/validate/validate_pointnet2_own_object.py \
+  3d_construction/outputs/fuse_obj_xxx/fused_object.pcd \
+  --use-all-points
 ```
 
-Optional:
+These commands use the default checkpoints under:
 
-- `--modelnet40-sample-method surface`
-- `--use-class-weights`
-- `--device cuda`
+- `model/pointnet/`
+- `model/pointmlp/`
+- `model/pointnet2/`
 
-Outputs:
+## 7. Compare TSDF and OpenMVS
 
-- `model/pointnet/pointnet_best.pth`
-- `model/pointnet/pointnet_last.pth`
-- `model/pointnet/labels.txt`
-
-### 7d. Predict and visualize one ModelNet40 or point cloud sample
+Compare TSDF reconstruction against the default final OpenMVS geometry:
 
 ```bash
-python detection/predict_pointcloud.py \
-  --input data/ModelNet40/airplane/test/airplane_0627.off \
-  --checkpoint model/pointnet/pointnet_best.pth \
-  --labels model/pointnet/labels.txt \
-  --model pointnet \
-  --visualize
+python3 3d_construction/compare_tsdf_openmvs_no_gt.py \
+  --tsdf-pcd 3d_construction/outputs/fr3_office.pcd \
+  --openmvs-workspace openmvs/workspaces/fr3_office_openmvs
 ```
 
-You can also use `--model pointmlp` or `--model pointmlpelite`. If omitted, the script will try to infer the model from the checkpoint.
+Default output:
 
-### 8. Train PointMLP
+- `3d_construction/eval/comparison_report.json`
+- `3d_construction/eval/comparison_summary.txt`
+- `3d_construction/eval/overview_views.png`
+- `3d_construction/eval/consistency_metrics.png`
+- `3d_construction/eval/openmvs_slam_view_metrics.png`
 
-Recommended lightweight setting on a small GPU:
+## 8. One Shell Script: 2D Detection -> 3D Object -> Classification
+
+Run the full object detection pipeline from the repository root:
 
 ```bash
-PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True python detection/pointmlp/train.py \
-  --dataset-type scanobjectnn \
-  --scanobjectnn-root data/ScanObjectNN \
-  --scanobjectnn-variant pb_t50_rs \
-  --model-type pointmlpelite \
-  --optimizer sgd \
-  --lr 0.01 \
-  --momentum 0.9 \
-  --epochs 200 \
-  --batch-size 4 \
-  --num-points 512 \
-  --use-class-weights \
-  --amp
+bash scripts/detect_object_from_tsdf.sh \
+  --config configs/rgbd/tum/fr3_office.yaml \
+  --target-class chair \
+  --classifier pointnet2
 ```
+
+Choose another classifier:
+
+```bash
+bash scripts/detect_object_from_tsdf.sh \
+  --config configs/rgbd/tum/fr3_office.yaml \
+  --target-class chair \
+  --classifier pointnet2
+```
+
+Pick one tracked instance:
+
+```bash
+bash scripts/detect_object_from_tsdf.sh \
+  --config configs/rgbd/tum/fr3_office.yaml \
+  --target-class chair \
+  --classifier pointnet2 \
+  --track-id 0
+```
+
+This script will:
+
+1. generate 2D masks with YOLO
+2. fuse them into a 3D object point cloud
+3. classify the fused object with the selected classifier
 
 Default outputs:
 
-- `model/pointmlp/pointmlp_best.pth`
-- `model/pointmlp/pointmlp_last.pth`
-- `model/pointmlp/labels.txt`
-
-### 9. Validate PointMLP and visualize one sample
-
-```bash
-python detection/validate_pointmlp_sample.py \
-  --checkpoint model/pointmlp/pointmlp_best.pth \
-  --scanobjectnn-root data/ScanObjectNN \
-  --scanobjectnn-variant pb_t50_rs \
-  --visualize
-```
-
-Optional:
-
-- `--index 12`
-- `--use-all-points`
-- `--visualize-raw-points`
-
-
-## Notes
-
-- `wandb/` is ignored by git.
-- `data/` is ignored by git.
-- `mask_generation` scripts only save masks when the target object is detected.
-- `fuse_tum_mask_object_pcd.py` can use either:
-  - `mask.txt` for one merged object
-  - `mask_track_*.txt` for separate instance fusion
+- masks: `mask_generation/outputs/<scene>_<class>_<model>_<timestamp>/`
+- fused object: `3d_construction/outputs/fuse_obj_<scene>_<class>_<timestamp>/fused_object.pcd`
